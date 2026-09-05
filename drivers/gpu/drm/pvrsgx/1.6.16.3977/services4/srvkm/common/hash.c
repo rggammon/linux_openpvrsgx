@@ -292,10 +292,10 @@ HASH_Insert_Extended (HASH_TABLE *pHash, IMG_VOID *pKey, IMG_UINTPTR_T v)
 		return IMG_FALSE;
 	}
 
-	if(OSAllocMem(PVRSRV_PAGEABLE_SELECT,
-					sizeof(BUCKET) + pHash->uKeySize,
-					(IMG_VOID **)&pBucket, IMG_NULL,
-					"Hash Table entry") != PVRSRV_OK)
+	if (OSAllocMem(PVRSRV_PAGEABLE_SELECT,
+			   sizeof(BUCKET) + pHash->uKeySize,
+			   (IMG_VOID **)&pBucket, IMG_NULL,
+			   "Hash Table entry") != PVRSRV_OK)
 	{
 		return IMG_FALSE;
 	}

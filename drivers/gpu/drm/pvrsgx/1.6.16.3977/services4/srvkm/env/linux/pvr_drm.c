@@ -27,7 +27,6 @@
 #if defined(SUPPORT_DRI_DRM)
 
 #ifndef AUTOCONF_INCLUDED
- #include <linux/config.h>
 #endif
 
 #include <linux/init.h>
@@ -66,7 +65,7 @@
 #include "pvr_drm_mod.h"
 #endif
 
-#define PVR_DRM_NAME	PVRSRV_MODNAME
+#define PVR_DRM_NAME	PVR_DDK_MODNAME
 #define PVR_DRM_DESC	"Imagination Technologies PVR DRM"
 
 #if !defined(PVR_DRI_DRM_NOT_PCI)

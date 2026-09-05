@@ -24,7 +24,7 @@
  *
  ******************************************************************************/
 
-#include <stddef.h>
+#include <linux/stddef.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include "sgxdefs.h"
@@ -331,8 +331,10 @@ PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO	*psDevInfo,
 	PVRSRV_KERNEL_MEM_INFO	*psSGXHostCtlMemInfo = psDevInfo->psKernelSGXHostCtlMemInfo;
 	SGXMKIF_HOST_CTL		*psSGXHostCtl = psSGXHostCtlMemInfo->pvLinAddrKM;
 	static IMG_BOOL			bFirstTime = IMG_TRUE;
+#if defined(PLAT_TI81xx)
 	void __iomem *pll_base;
 	void __iomem *div_base;
+#endif
 #if defined(PDUMP)
 	IMG_BOOL				bPDumpIsSuspended = PDumpIsSuspended();
 #endif 
@@ -407,9 +409,6 @@ PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO	*psDevInfo,
             iounmap (pll_base);
         }
 
-#else
-        if(cpu_is_omap3630())
-                OSWriteHWReg(psDevInfo->pvRegsBaseKM, 0xFF08, 0x80000000);//OCP Bypass mode
 #endif
 
 

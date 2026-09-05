@@ -11,6 +11,13 @@ choice
 	  Support for the PowerVR SGX 3D core based on DDK code
 	  variant as selected.
 	
+config PVRSGX_1_6_16_3977
+	bool "DDK 1.6.16.3977 (TI)"
+	depends on ARCH_OMAP3
+	help
+	  This version supports early OMAP3530 devices with SGX530
+	  core revision 1.0.3.
+
 config PVRSGX_1_7_862890
 	bool "DDK 1.7.862890 (Intel)"
 	help

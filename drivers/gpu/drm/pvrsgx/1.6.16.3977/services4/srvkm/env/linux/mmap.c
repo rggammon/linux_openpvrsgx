@@ -25,7 +25,6 @@
  ******************************************************************************/
 
 #ifndef AUTOCONF_INCLUDED
- #include <linux/config.h>
 #endif
 
 #include <linux/version.h>
@@ -520,7 +519,7 @@ DoMapToUser(LinuxMemArea *psLinuxMemArea,
 #if defined(PVR_MAKE_ALL_PFNS_SPECIAL)
 	if (bMixedMap)
 	{
-            ps_vma->vm_flags |= VM_MIXEDMAP;
+            vm_flags_set(ps_vma, VM_MIXEDMAP);
 	}
 #endif
 	
@@ -535,7 +534,11 @@ DoMapToUser(LinuxMemArea *psLinuxMemArea,
 #if defined(PVR_MAKE_ALL_PFNS_SPECIAL)
 	    if (bMixedMap)
 	    {
-		result = vm_insert_mixed(ps_vma, ulVMAPos, pfn);
+                vm_fault_t vmf;
+
+                vmf = vmf_insert_mixed(ps_vma, ulVMAPos, pfn);
+                if (vmf & VM_FAULT_ERROR)
+                    result = vm_fault_to_errno(vmf, 0);
                 if(result != 0)
                 {
                     PVR_DPF((PVR_DBG_ERROR,"%s: Error - vm_insert_mixed failed (%d)", __FUNCTION__, result));
@@ -718,14 +721,14 @@ PVRMMap(struct file* pFile, struct vm_area_struct* ps_vma)
     PVR_DPF((PVR_DBG_MESSAGE, "%s: Mapped psLinuxMemArea 0x%p\n",
          __FUNCTION__, psOffsetStruct->psLinuxMemArea));
 
-    ps_vma->vm_flags |= VM_RESERVED;
-    ps_vma->vm_flags |= VM_IO;
+    vm_flags_set(ps_vma, VM_DONTDUMP);
+    vm_flags_set(ps_vma, VM_IO);
 
     
-    ps_vma->vm_flags |= VM_DONTEXPAND;
+    vm_flags_set(ps_vma, VM_DONTEXPAND);
     
     
-    ps_vma->vm_flags |= VM_DONTCOPY;
+    vm_flags_set(ps_vma, VM_DONTCOPY);
 
     ps_vma->vm_private_data = (void *)psOffsetStruct;
     

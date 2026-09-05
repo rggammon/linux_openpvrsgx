@@ -25,7 +25,6 @@
  ******************************************************************************/
 
 #ifndef AUTOCONF_INCLUDED
- #include <linux/config.h>
 #endif
 
 #include <linux/version.h>
@@ -509,6 +508,16 @@ DebugMemAllocRecordTypeToString(DEBUG_MEM_ALLOC_TYPE eAllocType)
 
 
 
+static void *PVRVmalloc(IMG_UINT32 ui32Bytes, gfp_t gfpMask,
+                        pgprot_t pgProtFlags)
+{
+    return __vmalloc_node_range_noprof(ui32Bytes, 1,
+                                       VMALLOC_START, VMALLOC_END,
+                                       gfpMask, pgProtFlags, 0,
+                                       NUMA_NO_NODE,
+                                       __builtin_return_address(0));
+}
+
 IMG_VOID *
 _VMallocWrapper(IMG_UINT32 ui32Bytes,
                 IMG_UINT32 ui32AllocFlags,
@@ -538,7 +547,7 @@ _VMallocWrapper(IMG_UINT32 ui32Bytes,
     }
 
 	
-    pvRet = __vmalloc(ui32Bytes, GFP_KERNEL | __GFP_HIGHMEM, PGProtFlags);
+    pvRet = PVRVmalloc(ui32Bytes, GFP_KERNEL | __GFP_HIGHMEM, PGProtFlags);
     
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
     if(pvRet)

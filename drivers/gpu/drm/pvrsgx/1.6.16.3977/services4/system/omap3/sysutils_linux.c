@@ -31,19 +31,8 @@
 #include <linux/spinlock.h>
 #include <asm/bug.h>
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,26))
+#include <linux/platform_device.h>
 #include <linux/semaphore.h>
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,31))
-#include <plat/resource.h>
-#else 
-#include <mach/resource.h>
-#endif 
-#else 
-#include <asm/semaphore.h>
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22))
-#include <asm/arch/resource.h>
-#endif 
-#endif 
 
 #if	(LINUX_VERSION_CODE >  KERNEL_VERSION(2,6,22)) && \
 	(LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,27))
@@ -69,52 +58,26 @@
 #if !defined(PDUMP) && !defined(NO_HARDWARE)
 static IMG_BOOL PowerLockWrappedOnCPU(SYS_SPECIFIC_DATA *psSysSpecData)
 {
-	IMG_INT iCPU;
-	IMG_BOOL bLocked = IMG_FALSE;
-
-	if (!in_interrupt())
-	{
-		iCPU = get_cpu();
-		bLocked = (iCPU == atomic_read(&psSysSpecData->sPowerLockCPU));
-
-		put_cpu();
-	}
-
-	return bLocked;
+    PVR_UNREFERENCED_PARAMETER(psSysSpecData);
+    return IMG_TRUE;
 }
 
 static IMG_VOID PowerLockWrap(SYS_SPECIFIC_DATA *psSysSpecData)
 {
-	IMG_INT iCPU;
-
-	if (!in_interrupt())
-	{
-		
-		iCPU = get_cpu();
-
-		
-		PVR_ASSERT(iCPU != -1);
-
-		PVR_ASSERT(!PowerLockWrappedOnCPU(psSysSpecData));
-
-		spin_lock(&psSysSpecData->sPowerLock);
-
-		atomic_set(&psSysSpecData->sPowerLockCPU, iCPU);
-	}
+    if (!in_interrupt())
+    {
+        BUG_ON(in_atomic());
+        mutex_lock(&psSysSpecData->sPowerLock);
+    }
 }
 
 static IMG_VOID PowerLockUnwrap(SYS_SPECIFIC_DATA *psSysSpecData)
 {
-	if (!in_interrupt())
-	{
-		PVR_ASSERT(PowerLockWrappedOnCPU(psSysSpecData));
-
-		atomic_set(&psSysSpecData->sPowerLockCPU, -1);
-
-		spin_unlock(&psSysSpecData->sPowerLock);
-
-		put_cpu();
-	}
+    if (!in_interrupt())
+    {
+        BUG_ON(in_atomic());
+        mutex_unlock(&psSysSpecData->sPowerLock);
+    }
 }
 
 PVRSRV_ERROR SysPowerLockWrap(SYS_DATA *psSysData)
@@ -266,7 +229,6 @@ static IMG_VOID NotifyUnlock(SYS_SPECIFIC_DATA *psSysSpecData)
 {
 	PVR_ASSERT(NotifyLockedOnCPU(psSysSpecData));
 
-	atomic_set(&psSysSpecData->sNotifyLockCPU, -1);
 
 	spin_unlock(&psSysSpecData->sNotifyLock);
 
@@ -543,10 +505,7 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA *psSysData)
 	{
 		bPowerLock = IMG_FALSE;
 
-		spin_lock_init(&psSysSpecData->sPowerLock);
-		atomic_set(&psSysSpecData->sPowerLockCPU, -1);
-		spin_lock_init(&psSysSpecData->sNotifyLock);
-		atomic_set(&psSysSpecData->sNotifyLockCPU, -1);
+		mutex_init(&psSysSpecData->sPowerLock);
 
 		atomic_set(&psSysSpecData->sSGXClocksEnabled, 0);
 
@@ -583,13 +542,6 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA *psSysData)
 		}
 		psSysSpecData->psMPU_CK = psCLK;
 #endif
-		res = clk_set_parent(psSysSpecData->psSGX_FCK, psSysSpecData->psCORE_CK);
-		if (res < 0)
-		{
-			PVR_DPF((PVR_DBG_ERROR, "EnableSystemClocks: Couldn't set SGX parent clock (%d)", res));
-			goto ExitError;
-		}
-
 		psSysSpecData->bSysClocksOneTimeInit = IMG_TRUE;
 	}
 	else
@@ -603,7 +555,7 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA *psSysData)
 	}
 
 #if defined(CONSTRAINT_NOTIFICATIONS)
-	psSysSpecData->pVdd2Handle = constraint_get(PVRSRV_MODNAME, &cnstr_id_vdd2);
+	psSysSpecData->pVdd2Handle = constraint_get(PVR_DDK_MODNAME, &cnstr_id_vdd2);
 	if (IS_ERR(psSysSpecData->pVdd2Handle))
 	{
 		PVR_DPF((PVR_DBG_ERROR, "EnableSystemClocks: Couldn't get VDD2 constraint handle"));

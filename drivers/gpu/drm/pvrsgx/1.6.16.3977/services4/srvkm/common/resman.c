@@ -29,7 +29,6 @@
 
 #ifdef __linux__
 #ifndef AUTOCONF_INCLUDED
- #include <linux/config.h>
 #endif
 
 #include <linux/version.h>
@@ -47,7 +46,7 @@
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
-static DEFINE_SEMAPHORE(lock);
+static DEFINE_SEMAPHORE(lock, 1);
 #else
  static DECLARE_MUTEX(lock);
 #endif

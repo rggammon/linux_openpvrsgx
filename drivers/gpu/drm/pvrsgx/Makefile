@@ -28,7 +28,10 @@
 
 pvr_drv=no
 
-ifeq ($(CONFIG_PVRSGX_1_7_862890),y)
+ifeq ($(CONFIG_PVRSGX_1_6_16_3977),y)
+SUBPATH=1.6.16.3977
+pvr_omap3_only=yes
+else ifeq ($(CONFIG_PVRSGX_1_7_862890),y)
 SUBPATH=1.7.862890/pvr
 else ifeq ($(CONFIG_PVRSGX_1_8_869593),y)
 SUBPATH=1.8.869593/eurasia_km
@@ -121,14 +124,14 @@ else # pvr_drv
 	@$(kecho) "  MAKE    $(obj): omap3"
 	$(Q)TI_PLATFORM=omap3 $(MAKE) $(build)=$(SOURCE)
 	$(Q)if [ -r $(SOURCE)/modules.order ]; then cat $(SOURCE)/modules.order >>$(obj)/modules.order; fi
+ifneq ($(pvr_omap3_only),yes)
 	@$(kecho) "  MAKE    $(obj): omap3630"
 	$(Q)TI_PLATFORM=omap3630 $(MAKE) $(build)=$(SOURCE)
 	$(Q)if [ -r $(SOURCE)/modules.order ]; then cat $(SOURCE)/modules.order >>$(obj)/modules.order; fi
 	@$(kecho) "  MAKE    $(obj): ti335x"
 	$(Q)TI_PLATFORM=ti335x $(MAKE) $(build)=$(SOURCE)
 	$(Q)if [ -r $(SOURCE)/modules.order ]; then cat $(SOURCE)/modules.order >>$(obj)/modules.order; fi
-# may add more SOC variants here, e.g.
-# $(Q)CONFIG_SOC=generic $(MAKE) $(build)=$(SOURCE)
+endif
 # $(Q)CONFIG_SOC=omap5 $(MAKE) $(build)=$(obj)/omap5
 endif # CONFIG_PVRSGX_1_14_3699939
 endif # CONFIG_SGX_OMAP

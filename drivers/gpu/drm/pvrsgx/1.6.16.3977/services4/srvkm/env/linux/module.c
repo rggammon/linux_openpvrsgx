@@ -25,7 +25,6 @@
  ******************************************************************************/
 
 #ifndef AUTOCONF_INCLUDED
- #include <linux/config.h>
 #endif
 
 #if !defined(SUPPORT_DRI_DRM)
@@ -91,8 +90,8 @@
 #if defined(SUPPORT_DRI_DRM)
 #include "pvr_drm.h"
 #endif
-#define DRVNAME		PVRSRV_MODNAME
-#define DEVNAME		PVRSRV_MODNAME
+#define DRVNAME		PVR_DDK_MODNAME
+#define DEVNAME		PVR_DDK_MODNAME
 
 #if defined(SUPPORT_DRI_DRM)
 #define PRIVATE_DATA(pFile) ((pFile)->driver_priv)
@@ -100,7 +99,6 @@
 #define PRIVATE_DATA(pFile) ((pFile)->private_data)
 #endif
 
-MODULE_SUPPORTED_DEVICE(DEVNAME);
 
 #if defined(PVRSRV_NEED_PVR_DPF)
 #include <linux/moduleparam.h>
@@ -130,6 +128,7 @@ static struct file_operations pvrsrv_fops =
 	.open = PVRSRVOpen,
 	.release = PVRSRVRelease,
 	.mmap = PVRMMap,
+	.fop_flags = FOP_UNSIGNED_OFFSET,
 };
 #endif
 
@@ -154,7 +153,7 @@ static IMG_UINT32 gPVRPowerLevel;
 #endif 
 
 #if defined(PVR_LDM_PLATFORM_MODULE)
-static int PVRSRVDriverRemove(LDM_DEV *device);
+static void PVRSRVDriverRemove(LDM_DEV *device);
 static int PVRSRVDriverProbe(LDM_DEV *device);
 #endif
 #if defined(PVR_LDM_PCI_MODULE)
@@ -252,7 +251,7 @@ static int __devinit PVRSRVDriverProbe(LDM_DEV *pDevice, const struct pci_device
 
 
 #if defined (PVR_LDM_PLATFORM_MODULE)
-static int PVRSRVDriverRemove(LDM_DEV *pDevice)
+static void PVRSRVDriverRemove(LDM_DEV *pDevice)
 #endif
 #if defined(PVR_LDM_PCI_MODULE)
 static void __devexit PVRSRVDriverRemove(LDM_DEV *pDevice)
@@ -285,7 +284,6 @@ static void __devexit PVRSRVDriverRemove(LDM_DEV *pDevice)
 #endif
 
 #if defined (PVR_LDM_PLATFORM_MODULE)
-	return 0;
 #endif
 #if defined (PVR_LDM_PCI_MODULE)
 	return;
@@ -408,7 +406,9 @@ static int PVRSRVOpen(struct inode unref__ * pInode, struct file *pFile)
 	ui32PID = OSGetCurrentProcessIDKM();
 
 	if (PVRSRVProcessConnect(ui32PID, 0) != PVRSRV_OK)
+	{
 		goto err_unlock;
+	}
 
 #if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
 	psEnvPerProc = PVRSRVPerProcessPrivateData(ui32PID);
@@ -426,7 +426,10 @@ static int PVRSRVOpen(struct inode unref__ * pInode, struct file *pFile)
 						"File Private Data");
 
 	if(eError != PVRSRV_OK)
+	{
+		pr_err("pvrsrvkm: file private allocation failed (%d)\n", eError);
 		goto err_unlock;
+	}
 
 #if defined(PVR_SECURE_FD_EXPORT)
 	psPrivateData->hKernelMemInfo = NULL;
@@ -597,7 +600,7 @@ static int __init PVRCore_Init(IMG_VOID)
 
 #if defined(PVR_LDM_MODULE)
 	
-	psPvrClass = class_create(THIS_MODULE, "pvr");
+	psPvrClass = class_create("pvr");
 
 	if (IS_ERR(psPvrClass))
 	{
@@ -739,6 +742,8 @@ static void __exit PVRCore_Cleanup(void)
 }
 
 #if !defined(SUPPORT_DRI_DRM)
+MODULE_DESCRIPTION("PowerVR SGX530 Services driver (DDK 1.6.16.3977)");
+MODULE_LICENSE("GPL");
 module_init(PVRCore_Init);
 module_exit(PVRCore_Cleanup);
 #endif
