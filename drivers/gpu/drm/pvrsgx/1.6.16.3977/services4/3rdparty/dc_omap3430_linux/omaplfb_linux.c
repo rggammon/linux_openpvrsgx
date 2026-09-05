@@ -44,12 +44,12 @@
 #if defined (SUPPORT_TI_DSS_FW)
 #include <asm/io.h>
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,26))
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,31))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,39))
+#include <video/omapdss.h>
+#elif (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,31))
 #include <plat/display.h>
-#else 
+#elif (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,26))
 #include <mach/display.h>
-#endif 
 #else 
 #include <asm/arch-omap/display.h>
 #endif 
@@ -61,7 +61,11 @@ extern int omap_dispc_request_irq(unsigned long, void (*)(void *), void *);
 extern void omap_dispc_free_irq(unsigned long, void (*)(void *), void *);
 extern void omap_dispc_set_plane_base(int plane, IMG_UINT32 phys_addr);
 #else
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,39))
+#include <video/omapdss.h>
+#else
 #include <plat/display.h>
+#endif
 #include <linux/console.h>
 #include <linux/fb.h>
 static omap_dispc_isr_t *pOMAPLFBVSyncISRHandle = NULL;
