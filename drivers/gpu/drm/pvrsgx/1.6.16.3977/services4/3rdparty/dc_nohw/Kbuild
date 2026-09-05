@@ -1,0 +1,38 @@
+#
+# Copyright (C) Imagination Technologies Ltd. All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms and conditions of the GNU General Public License,
+# version 2, as published by the Free Software Foundation.
+#
+# This program is distributed in the hope it will be useful but, except
+# as otherwise stated in writing, without any warranty; without even the
+# implied warranty of merchantability or fitness for a particular purpose.
+# See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# The full GNU General Public License is included in this distribution in
+# the file called "COPYING".
+#
+# Contact Information:
+# Imagination Technologies Ltd. <gpl-support@imgtec.com>
+# Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK
+#
+#
+
+ccflags-y += -DLINUX
+ccflags-y += -DMODULE
+ccflags-y += -DDC_NOHW_DISCONTIG_BUFFERS -DDC_NOHW_GET_BUFFER_DIMENSIONS
+ccflags-y += -DDC_NOHW_BUFFER_WIDTH=1024 -DDC_NOHW_BUFFER_HEIGHT=600
+ccflags-y += -DDC_NOHW_BUFFER_BIT_DEPTH=32
+ccflags-y += -I$(src)
+ccflags-y += -I$(src)/../../../include4
+ccflags-y += -I$(src)/../../../services4/include
+ccflags-y += -I$(src)/../../../services4/system/omap3
+ccflags-y += -I$(src)/../../../services4/system/include
+
+obj-m := dcnohw.o
+dcnohw-y := dc_nohw_displayclass.o dc_nohw_linux.o

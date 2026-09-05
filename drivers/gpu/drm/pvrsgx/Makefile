@@ -124,6 +124,11 @@ else # pvr_drv
 	@$(kecho) "  MAKE    $(obj): omap3"
 	$(Q)TI_PLATFORM=omap3 $(MAKE) $(build)=$(SOURCE)
 	$(Q)if [ -r $(SOURCE)/modules.order ]; then cat $(SOURCE)/modules.order >>$(obj)/modules.order; fi
+ifneq ($(CONFIG_PVRSGX_1_6_16_3977_DC_NOHW),)
+	@$(kecho) "  MAKE    $(obj): dc_nohw"
+	$(Q)KBUILD_EXTRA_SYMBOLS=$(SOURCE)/Module.symvers $(MAKE) $(build)=$(SOURCE)/services4/3rdparty/dc_nohw
+	$(Q)if [ -r $(SOURCE)/services4/3rdparty/dc_nohw/modules.order ]; then cat $(SOURCE)/services4/3rdparty/dc_nohw/modules.order >>$(obj)/modules.order; fi
+endif
 ifneq ($(pvr_omap3_only),yes)
 	@$(kecho) "  MAKE    $(obj): omap3630"
 	$(Q)TI_PLATFORM=omap3630 $(MAKE) $(build)=$(SOURCE)

@@ -64,6 +64,13 @@ config PVRSGX_1_17_4948957
 
 endchoice
 
+config PVRSGX_1_6_16_3977_DC_NOHW
+	tristate "DDK 1.6 headless display class"
+	depends on PVRSGX_1_6_16_3977 && SGX_OMAP
+	help
+	  Build the dc_nohw DisplayClass provider for headless EGL and
+	  offscreen rendering with DDK 1.6.
+
 if SGX && PVRSGX_1_17_4948957
 menuconfig SGX_ABI
 	bool "PowerVR ABI options"
