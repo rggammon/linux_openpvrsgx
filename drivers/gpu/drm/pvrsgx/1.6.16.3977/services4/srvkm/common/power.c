@@ -104,10 +104,13 @@ PVRSRV_ERROR PVRSRVPowerLock(IMG_UINT32	ui32CallerID,
 	SysAcquireData(&psSysData);
 
 #if defined(SYS_CUSTOM_POWERLOCK_WRAP)
-	eError = SysPowerLockWrap(psSysData);
-	if (eError != PVRSRV_OK)
+	if (ui32CallerID != ISR_ID)
 	{
-		return eError;
+		eError = SysPowerLockWrap(psSysData);
+		if (eError != PVRSRV_OK)
+		{
+			return eError;
+		}
 	}
 #endif
 	do
@@ -131,7 +134,7 @@ PVRSRV_ERROR PVRSRVPowerLock(IMG_UINT32	ui32CallerID,
 	} while (ui32Timeout > 0);
 
 #if defined(SYS_CUSTOM_POWERLOCK_WRAP)
-	if (eError != PVRSRV_OK)
+	if ((ui32CallerID != ISR_ID) && (eError != PVRSRV_OK))
 	{
 		SysPowerLockUnwrap(psSysData);
 	}
@@ -155,7 +158,10 @@ IMG_VOID PVRSRVPowerUnlock(IMG_UINT32	ui32CallerID)
 {
 	OSUnlockResource(&gpsSysData->sPowerStateChangeResource, ui32CallerID);
 #if defined(SYS_CUSTOM_POWERLOCK_WRAP)
-	SysPowerLockUnwrap(gpsSysData);
+	if (ui32CallerID != ISR_ID)
+	{
+		SysPowerLockUnwrap(gpsSysData);
+	}
 #endif
 }
 
