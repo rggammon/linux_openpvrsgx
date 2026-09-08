@@ -56,6 +56,54 @@ static void SetAnchorPtr(DC_NOHW_DEVINFO *psDevInfo)
 	gpvAnchor = (void *)psDevInfo;
 }
 
+int DCNohwGetGeometry(unsigned int *width, unsigned int *height,
+                      unsigned int *stride, unsigned int *count,
+                      unsigned int *buffer_size)
+{
+	DC_NOHW_DEVINFO *psDevInfo = GetAnchorPtr();
+	unsigned int i, n = 0;
+
+	if (!psDevInfo)
+		return -ENODEV;
+
+	for (i = 0; i < DC_NOHW_MAX_BACKBUFFERS; i++)
+		if (psDevInfo->asBackBuffers[i].sCPUVAddr)
+			n++;
+
+	if (width)
+		*width = psDevInfo->sSysDims.ui32Width;
+	if (height)
+		*height = psDevInfo->sSysDims.ui32Height;
+	if (stride)
+		*stride = psDevInfo->sSysDims.ui32ByteStride;
+	if (count)
+		*count = n;
+	if (buffer_size)
+		*buffer_size = psDevInfo->ui32BufferSize;
+	return 0;
+}
+
+int DCNohwGetBufferInfo(unsigned int index, void **cpu_vaddr,
+                        unsigned int *dma_addr, unsigned int *size)
+{
+	DC_NOHW_DEVINFO *psDevInfo = GetAnchorPtr();
+
+	if (!psDevInfo)
+		return -ENODEV;
+	if (index >= DC_NOHW_MAX_BACKBUFFERS)
+		return -EINVAL;
+	if (!psDevInfo->asBackBuffers[index].sCPUVAddr)
+		return -ENOENT;
+
+	if (cpu_vaddr)
+		*cpu_vaddr = psDevInfo->asBackBuffers[index].sCPUVAddr;
+	if (dma_addr)
+		*dma_addr = (unsigned int)psDevInfo->asBackBuffers[index].sSysAddr.uiAddr;
+	if (size)
+		*size = psDevInfo->ui32BufferSize;
+	return 0;
+}
+
 #if !defined(DC_NOHW_DISCONTIG_BUFFERS) && !defined(USE_BASE_VIDEO_FRAMEBUFFER)
 IMG_SYS_PHYADDR CpuPAddrToSysPAddr(IMG_CPU_PHYADDR cpu_paddr)
 {
