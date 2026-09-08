@@ -53,6 +53,10 @@
 #include "kerneldisplay.h"
 #include "dc_nohw.h"
 #include "pvrmodule.h"
+#include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
+
+static struct platform_device *gpsDcNohwDev;
 
 #if defined(SUPPORT_DRI_DRM)
 #include "pvr_drm.h"
@@ -127,8 +131,28 @@ int PVR_DRM_MAKENAME(DISPLAY_CONTROLLER, _Init)(struct drm_device unref__ *dev)
 static int __init DC_NOHW_Init(void)
 #endif
 {
+	int iError;
+
+	gpsDcNohwDev = platform_device_register_simple(DRVNAME, -1, NULL, 0);
+	if (IS_ERR(gpsDcNohwDev))
+	{
+		iError = PTR_ERR(gpsDcNohwDev);
+		gpsDcNohwDev = NULL;
+		printk(KERN_ERR DRVNAME ": DC_NOHW_Init: platform_device_register failed (%d)\n", iError);
+		return iError;
+	}
+	if (dma_coerce_mask_and_coherent(&gpsDcNohwDev->dev, DMA_BIT_MASK(32)))
+	{
+		platform_device_unregister(gpsDcNohwDev);
+		gpsDcNohwDev = NULL;
+		printk(KERN_ERR DRVNAME ": DC_NOHW_Init: no 32-bit DMA mask\n");
+		return -ENODEV;
+	}
+
 	if(Init() != DC_OK)
 	{
+		platform_device_unregister(gpsDcNohwDev);
+		gpsDcNohwDev = NULL;
 		return -ENODEV;
 	}
 
@@ -144,6 +168,12 @@ static void __exit DC_NOHW_Cleanup(void)
 	if(Deinit() != DC_OK)
 	{
 		printk (KERN_INFO DRVNAME ": DC_NOHW_Cleanup: can't deinit device\n");
+	}
+
+	if (gpsDcNohwDev)
+	{
+		platform_device_unregister(gpsDcNohwDev);
+		gpsDcNohwDev = NULL;
 	}
 }
 
@@ -243,7 +273,7 @@ DC_ERROR AllocContigMemory(unsigned long ulSize,
 	dma_addr_t dma;
 	IMG_VOID *pvLinAddr;
 
-	pvLinAddr = dma_alloc_coherent(NULL, ulSize, &dma, GFP_KERNEL);
+	pvLinAddr = dma_alloc_coherent(&gpsDcNohwDev->dev, ulSize, &dma, GFP_KERNEL);
 
 	if (pvLinAddr == NULL)
 	{
@@ -274,7 +304,7 @@ void FreeContigMemory(unsigned long ulSize,
 	}
 	kfree(LinAddr);
 #else
-	dma_free_coherent(NULL, ulSize, LinAddr, (dma_addr_t)PhysAddr.uiAddr);
+	dma_free_coherent(&gpsDcNohwDev->dev, ulSize, LinAddr, (dma_addr_t)PhysAddr.uiAddr);
 #endif
 }
 #endif
