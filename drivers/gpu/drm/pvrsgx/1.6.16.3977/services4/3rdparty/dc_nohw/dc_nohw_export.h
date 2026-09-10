@@ -11,7 +11,7 @@
 #include <linux/types.h>
 #include <linux/ioctl.h>
 
-#define DC_NOHW_EXPORT_ABI_VERSION 1u
+#define DC_NOHW_EXPORT_ABI_VERSION 2u
 
 /* DRM_FORMAT_ARGB8888 == fourcc('A','R','2','4') */
 #define DC_NOHW_EXPORT_FOURCC_ARGB8888 0x34325241u
@@ -40,4 +40,22 @@ struct dc_nohw_export_buffer {
 #define DC_NOHW_EXPORT_BUFFER \
 	_IOWR(DC_NOHW_EXPORT_IOC_MAGIC, 2, struct dc_nohw_export_buffer)
 
+/* --- Swap-notify (ABI v2): make the export fd pollable for swap events. --- */
+
+struct dc_nohw_export_event {
+        __u32 type;      /* DC_NOHW_EVENT_* */
+        __u32 index;     /* SWAP: back-buffer index; SWAPCHAIN_CREATE: buffer_count */
+        __u32 seq;       /* SWAP: monotonic sequence; else 0 */
+        __u32 reserved;
+};
+
+#define DC_NOHW_EVENT_SWAPCHAIN_CREATE  1u
+#define DC_NOHW_EVENT_SWAPCHAIN_DESTROY 2u
+#define DC_NOHW_EVENT_SWAP              3u
+
+/* Arm swap-notify on this fd, then poll()/read() struct dc_nohw_export_event. */
+#define DC_NOHW_EXPORT_SUBSCRIBE \
+        _IO(DC_NOHW_EXPORT_IOC_MAGIC, 3)
+
 #endif /* _UAPI_DC_NOHW_EXPORT_H_ */
+

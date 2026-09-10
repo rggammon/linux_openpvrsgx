@@ -173,6 +173,11 @@ int DCNohwGetGeometry(unsigned int *width, unsigned int *height,
 int DCNohwGetBufferInfo(unsigned int index, void **cpu_vaddr,
                         unsigned int *dma_addr, unsigned int *size);
 
+/* Swap-notify emit hooks (implemented in dc_nohw_export.c, called from the
+ * DisplayClass flip path). Safe to call from any context (non-sleeping). */
+void DCNohwNotifySwapchain(int create, unsigned int buffer_count);
+void DCNohwNotifySwap(unsigned int index);
+
 
 #ifndef UNREFERENCED_PARAMETER
 #define	UNREFERENCED_PARAMETER(param) (param) = (param)

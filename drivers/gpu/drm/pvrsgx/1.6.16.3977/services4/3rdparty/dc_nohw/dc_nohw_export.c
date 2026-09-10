@@ -19,6 +19,12 @@
 #include <linux/dma-mapping.h>
 #include <linux/scatterlist.h>
 #include <linux/err.h>
+#include <linux/poll.h>
+#include <linux/wait.h>
+#include <linux/sched.h>
+#include <linux/list.h>
+#include <linux/spinlock.h>
+#include <linux/atomic.h>
 
 #include "dc_nohw_export.h"
 
@@ -33,6 +39,65 @@ int DCNohwGetGeometry(unsigned int *width, unsigned int *height,
 		      unsigned int *buffer_size);
 int DCNohwGetBufferInfo(unsigned int index, void **cpu_vaddr,
 			unsigned int *dma_addr, unsigned int *size);
+void DCNohwNotifySwap(unsigned int index);
+void DCNohwNotifySwapchain(int create, unsigned int buffer_count);
+
+/* ---- Swap-notify: a pollable per-open swap event stream (ABI v2) ---- */
+
+#define DC_NOHW_EV_RING 64u
+
+struct dc_nohw_sub {
+        struct list_head list;
+        wait_queue_head_t wq;
+        spinlock_t lock;
+        unsigned int head;      /* free-running write counter */
+        unsigned int tail;      /* free-running read counter */
+        struct dc_nohw_export_event ev[DC_NOHW_EV_RING];
+};
+
+static LIST_HEAD(dc_nohw_subs);
+static DEFINE_SPINLOCK(dc_nohw_subs_lock);
+static atomic_t dc_nohw_swap_seq = ATOMIC_INIT(0);
+
+static void dc_nohw_broadcast(const struct dc_nohw_export_event *e)
+{
+        struct dc_nohw_sub *s;
+        unsigned long f0, f1;
+
+        spin_lock_irqsave(&dc_nohw_subs_lock, f0);
+        list_for_each_entry(s, &dc_nohw_subs, list) {
+                spin_lock_irqsave(&s->lock, f1);
+                if (s->head - s->tail >= DC_NOHW_EV_RING)
+                        s->tail++;              /* drop oldest (mailbox) */
+                s->ev[s->head % DC_NOHW_EV_RING] = *e;
+                s->head++;
+                spin_unlock_irqrestore(&s->lock, f1);
+                wake_up_interruptible(&s->wq);
+        }
+        spin_unlock_irqrestore(&dc_nohw_subs_lock, f0);
+}
+
+void DCNohwNotifySwap(unsigned int index)
+{
+        struct dc_nohw_export_event e;
+
+        memset(&e, 0, sizeof(e));
+        e.type = DC_NOHW_EVENT_SWAP;
+        e.index = index;
+        e.seq = (__u32)atomic_inc_return(&dc_nohw_swap_seq);
+        dc_nohw_broadcast(&e);
+}
+
+void DCNohwNotifySwapchain(int create, unsigned int buffer_count)
+{
+        struct dc_nohw_export_event e;
+
+        memset(&e, 0, sizeof(e));
+        e.type = create ? DC_NOHW_EVENT_SWAPCHAIN_CREATE
+                        : DC_NOHW_EVENT_SWAPCHAIN_DESTROY;
+        e.index = buffer_count;
+        dc_nohw_broadcast(&e);
+}
 
 struct dc_nohw_dmabuf {
 	struct device *dev;
@@ -203,15 +268,109 @@ static long dc_nohw_export_ioctl(struct file *file, unsigned int cmd,
 			return -EFAULT;
 		return 0;
 	}
-	default:
-		return -ENOTTY;
-	}
+        case DC_NOHW_EXPORT_SUBSCRIBE: {
+                struct dc_nohw_sub *s = file->private_data;
+                unsigned long f;
+
+                if (s)
+                        return 0;               /* already subscribed */
+                s = kzalloc(sizeof(*s), GFP_KERNEL);
+                if (!s)
+                        return -ENOMEM;
+                init_waitqueue_head(&s->wq);
+                spin_lock_init(&s->lock);
+                spin_lock_irqsave(&dc_nohw_subs_lock, f);
+                list_add(&s->list, &dc_nohw_subs);
+                spin_unlock_irqrestore(&dc_nohw_subs_lock, f);
+                file->private_data = s;
+                return 0;
+        }
+        default:
+                return -ENOTTY;
+        }
+}
+
+static int dc_nohw_export_open(struct inode *inode, struct file *file)
+{
+        file->private_data = NULL;
+        return 0;
+}
+
+static __poll_t dc_nohw_export_poll(struct file *file, poll_table *wait)
+{
+        struct dc_nohw_sub *s = file->private_data;
+        __poll_t mask = 0;
+        unsigned long f;
+
+        if (!s)
+                return 0;
+        poll_wait(file, &s->wq, wait);
+        spin_lock_irqsave(&s->lock, f);
+        if (s->head != s->tail)
+                mask |= EPOLLIN | EPOLLRDNORM;
+        spin_unlock_irqrestore(&s->lock, f);
+        return mask;
+}
+
+static ssize_t dc_nohw_export_read(struct file *file, char __user *buf,
+                                   size_t count, loff_t *ppos)
+{
+        struct dc_nohw_sub *s = file->private_data;
+        unsigned long f;
+        size_t done = 0;
+
+        if (!s)
+                return -EINVAL;
+        if (count < sizeof(struct dc_nohw_export_event))
+                return -EINVAL;
+
+        spin_lock_irqsave(&s->lock, f);
+        while (s->head == s->tail) {
+                spin_unlock_irqrestore(&s->lock, f);
+                if (file->f_flags & O_NONBLOCK)
+                        return -EAGAIN;
+                if (wait_event_interruptible(s->wq, s->head != s->tail))
+                        return -ERESTARTSYS;
+                spin_lock_irqsave(&s->lock, f);
+        }
+        while (s->head != s->tail &&
+               done + sizeof(struct dc_nohw_export_event) <= count) {
+                struct dc_nohw_export_event e = s->ev[s->tail % DC_NOHW_EV_RING];
+
+                s->tail++;
+                spin_unlock_irqrestore(&s->lock, f);
+                if (copy_to_user(buf + done, &e, sizeof(e)))
+                        return -EFAULT;
+                done += sizeof(e);
+                spin_lock_irqsave(&s->lock, f);
+        }
+        spin_unlock_irqrestore(&s->lock, f);
+        return (ssize_t)done;
+}
+
+static int dc_nohw_export_release(struct inode *inode, struct file *file)
+{
+        struct dc_nohw_sub *s = file->private_data;
+        unsigned long f;
+
+        if (s) {
+                spin_lock_irqsave(&dc_nohw_subs_lock, f);
+                list_del(&s->list);
+                spin_unlock_irqrestore(&dc_nohw_subs_lock, f);
+                kfree(s);
+                file->private_data = NULL;
+        }
+        return 0;
 }
 
 static const struct file_operations dc_nohw_export_fops = {
-	.owner = THIS_MODULE,
-	.unlocked_ioctl = dc_nohw_export_ioctl,
-	.llseek = noop_llseek,
+        .owner = THIS_MODULE,
+        .open = dc_nohw_export_open,
+        .release = dc_nohw_export_release,
+        .unlocked_ioctl = dc_nohw_export_ioctl,
+        .poll = dc_nohw_export_poll,
+        .read = dc_nohw_export_read,
+        .llseek = noop_llseek,
 };
 
 static struct miscdevice dc_nohw_export_misc = {
