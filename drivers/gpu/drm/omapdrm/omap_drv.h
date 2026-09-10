@@ -109,4 +109,15 @@ struct omap_global_state * __must_check omap_get_global_state(struct drm_atomic_
 
 struct omap_global_state *omap_get_existing_global_state(struct omap_drm_private *priv);
 
+
+/* omap_present.c - in-kernel present for external DisplayClass providers. */
+struct dma_buf;
+extern struct drm_device *omapdrm_global_ddev;
+struct drm_framebuffer *omapdrm_import_dmabuf(struct dma_buf *dbuf,
+					      u32 width, u32 height,
+					      u32 pitch, u32 fourcc);
+void omapdrm_release_fb(struct drm_framebuffer *fb);
+int omapdrm_present(struct drm_framebuffer *fb,
+		    void (*flip_done)(void *cookie), void *cookie);
+
 #endif /* __OMAPDRM_DRV_H__ */

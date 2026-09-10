@@ -35,4 +35,4 @@ ccflags-y += -I$(src)/../../../services4/system/omap3
 ccflags-y += -I$(src)/../../../services4/system/include
 
 obj-m := dcnohw.o
-dcnohw-y := dc_nohw_displayclass.o dc_nohw_linux.o dc_nohw_export.o
+dcnohw-y := dc_nohw_displayclass.o dc_nohw_linux.o dc_nohw_export.o dc_nohw_present.o

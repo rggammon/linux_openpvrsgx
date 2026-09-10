@@ -5,6 +5,7 @@
 #
 
 omapdrm-y := omap_drv.o \
+	omap_present.o \
 	omap_irq.o \
 	omap_debugfs.o \
 	omap_crtc.o \

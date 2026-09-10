@@ -655,8 +655,10 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE	hCmdCookie,
 
 	{
 		int iIndex = DCNohwBufferIndex(psDevInfo, psBuffer);
-		if (iIndex >= 0)
+		if (iIndex >= 0) {
 			DCNohwNotifySwap((unsigned int)iIndex);
+			DCNohwPresentFlip((unsigned int)iIndex);
+		}
 	}
 
 	psDevInfo->sPVRJTable.pfnPVRSRVCmdComplete(hCmdCookie, IMG_FALSE);

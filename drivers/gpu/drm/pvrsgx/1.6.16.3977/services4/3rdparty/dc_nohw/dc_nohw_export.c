@@ -173,7 +173,7 @@ static const struct dma_buf_ops dc_nohw_dmabuf_ops = {
 	.release = dc_nohw_dmabuf_release,
 };
 
-static int dc_nohw_export_one(unsigned int index)
+struct dma_buf *dc_nohw_make_dmabuf(unsigned int index)
 {
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 	struct dc_nohw_dmabuf *b;
@@ -181,21 +181,21 @@ static int dc_nohw_export_one(unsigned int index)
 	struct device *dev;
 	void *cpu_vaddr;
 	unsigned int dma_addr = 0, size = 0;
-	int fd, ret;
+	int ret;
 
 	dev = DCNohwGetDev();
 	if (!dev)
-		return -ENODEV;
+		return ERR_PTR(-ENODEV);
 
 	ret = DCNohwGetBufferInfo(index, &cpu_vaddr, &dma_addr, &size);
 	if (ret)
-		return ret;
+		return ERR_PTR(ret);
 	if (!cpu_vaddr || !size)
-		return -ENOENT;
+		return ERR_PTR(-ENOENT);
 
 	b = kzalloc(sizeof(*b), GFP_KERNEL);
 	if (!b)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 	b->dev = dev;
 	b->cpu_vaddr = cpu_vaddr;
 	b->dma_addr = (dma_addr_t)dma_addr;
@@ -211,8 +211,19 @@ static int dc_nohw_export_one(unsigned int index)
 	dmabuf = dma_buf_export(&exp_info);
 	if (IS_ERR(dmabuf)) {
 		kfree(b);
-		return PTR_ERR(dmabuf);
+		return dmabuf;
 	}
+	return dmabuf;
+}
+
+static int dc_nohw_export_one(unsigned int index)
+{
+	struct dma_buf *dmabuf;
+	int fd;
+
+	dmabuf = dc_nohw_make_dmabuf(index);
+	if (IS_ERR(dmabuf))
+		return PTR_ERR(dmabuf);
 
 	fd = dma_buf_fd(dmabuf, O_CLOEXEC);
 	if (fd < 0)

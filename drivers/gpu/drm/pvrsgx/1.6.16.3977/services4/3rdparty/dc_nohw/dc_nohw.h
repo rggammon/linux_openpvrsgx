@@ -178,6 +178,12 @@ int DCNohwGetBufferInfo(unsigned int index, void **cpu_vaddr,
 void DCNohwNotifySwapchain(int create, unsigned int buffer_count);
 void DCNohwNotifySwap(unsigned int index);
 
+struct dma_buf;
+struct dma_buf *dc_nohw_make_dmabuf(unsigned int index);
+void DCNohwPresentInit(void);
+void DCNohwPresentFlip(unsigned int index);
+void DCNohwPresentTeardown(void);
+
 
 #ifndef UNREFERENCED_PARAMETER
 #define	UNREFERENCED_PARAMETER(param) (param) = (param)

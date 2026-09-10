@@ -169,6 +169,8 @@ static int __init DC_NOHW_Init(void)
 		return -ENODEV;
 	}
 
+	DCNohwPresentInit();
+
 	return 0;
 }
 
@@ -178,6 +180,7 @@ void PVR_DRM_MAKENAME(DISPLAY_CONTROLLER, _Cleanup)(struct drm_device unref__ *d
 static void __exit DC_NOHW_Cleanup(void)
 #endif
 {
+	DCNohwPresentTeardown();
 	DCNohwExportDeinit();
 
 	if(Deinit() != DC_OK)

@@ -691,6 +691,7 @@ static int omapdrm_init(struct omap_drm_private *priv, struct device *dev)
 
 	priv->ddev = ddev;
 	ddev->dev_private = priv;
+	omapdrm_global_ddev = ddev;
 
 	priv->dev = dev;
 	priv->dss = pdata->dss;
@@ -772,6 +773,8 @@ err_alloc_workqueue:
 static void omapdrm_cleanup(struct omap_drm_private *priv)
 {
 	struct drm_device *ddev = priv->ddev;
+
+	omapdrm_global_ddev = NULL;
 
 	DBG("");
 
