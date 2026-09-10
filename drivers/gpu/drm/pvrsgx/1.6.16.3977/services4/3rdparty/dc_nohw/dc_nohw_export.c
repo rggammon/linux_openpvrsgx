@@ -40,6 +40,7 @@ int DCNohwGetGeometry(unsigned int *width, unsigned int *height,
 int DCNohwGetBufferInfo(unsigned int index, void **cpu_vaddr,
 			unsigned int *dma_addr, unsigned int *size);
 void DCNohwNotifySwap(unsigned int index);
+struct dma_buf *dc_nohw_make_dmabuf(unsigned int index);
 void DCNohwNotifySwapchain(int create, unsigned int buffer_count);
 
 /* ---- Swap-notify: a pollable per-open swap event stream (ABI v2) ---- */

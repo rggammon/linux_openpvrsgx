@@ -180,8 +180,10 @@ void DCNohwNotifySwap(unsigned int index);
 
 struct dma_buf;
 struct dma_buf *dc_nohw_make_dmabuf(unsigned int index);
+void DCNohwCompleteFlip(void *cookie);
 void DCNohwPresentInit(void);
-void DCNohwPresentFlip(unsigned int index);
+int DCNohwPresentFlip(unsigned int index, void *cookie);
+void DCNohwPresentFlush(void);
 void DCNohwPresentTeardown(void);
 
 
