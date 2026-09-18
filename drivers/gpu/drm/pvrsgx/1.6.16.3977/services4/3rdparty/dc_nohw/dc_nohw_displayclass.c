@@ -325,6 +325,8 @@ static PVRSRV_ERROR GetDCBufferAddr(IMG_HANDLE         hDevice,
 	return (PVRSRV_OK);
 }
 
+static PVRSRV_ERROR DestroyDCSwapChain(IMG_HANDLE hDevice, IMG_HANDLE hSwapChain);
+
 static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
                                       IMG_UINT32 ui32Flags,
                                       DISPLAY_SURF_ATTRIBUTES *psDstSurfAttrib,
@@ -358,7 +360,11 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 
 	if(psDevInfo->psSwapChain)
 	{
-		return (PVRSRV_ERROR_FLIP_CHAIN_EXISTS);
+		/* Reclaim a swapchain leaked by a crashed or killed client: dc_nohw drives a
+		 * single display, so a new client supersedes the stale chain. Free it and
+		 * release the imported omapdrm framebuffers (DCNohwPresentFlush) so the next
+		 * client is not blocked until reboot. */
+		DestroyDCSwapChain(hDevice, (IMG_HANDLE)psDevInfo->psSwapChain);
 	}
 
 
