@@ -969,11 +969,17 @@ static IMG_VOID SGXDumpDebugInfo (PVRSRV_SGXDEV_INFO	*psDevInfo,
 			SGXDumpDebugReg(psDevInfo, ui32CoreNum, "EUR_CR_BIF_INT_STAT:     ", EUR_CR_BIF_INT_STAT);
 			SGXDumpDebugReg(psDevInfo, ui32CoreNum, "EUR_CR_BIF_FAULT:        ", EUR_CR_BIF_FAULT);
 			SGXDumpDebugReg(psDevInfo, ui32CoreNum, "EUR_CR_BIF_MEM_REQ_STAT: ", EUR_CR_BIF_MEM_REQ_STAT);
+			SGXDumpDebugReg(psDevInfo, ui32CoreNum, "EUR_CR_BIF_DIR_LIST_BASE0: ", EUR_CR_BIF_DIR_LIST_BASE0);
 			SGXDumpDebugReg(psDevInfo, ui32CoreNum, "EUR_CR_CLKGATECTL:       ", EUR_CR_CLKGATECTL);
 		#if defined(EUR_CR_PDS_PC_BASE)
 			SGXDumpDebugReg(psDevInfo, ui32CoreNum, "EUR_CR_PDS_PC_BASE:      ", EUR_CR_PDS_PC_BASE);
 		#endif
 		}
+		PVR_LOG(("SGX PD refs: kernel BASE0=0x%08X reset BASE0=0x%08X (kernelPD=0x%08X resetPD=0x%08X)",
+					psDevInfo->sKernelPDDevPAddr.uiAddr >> EUR_CR_BIF_DIR_LIST_BASE0_ADDR_SHIFT,
+					psDevInfo->sBIFResetPDDevPAddr.uiAddr >> EUR_CR_BIF_DIR_LIST_BASE0_ADDR_SHIFT,
+					psDevInfo->sKernelPDDevPAddr.uiAddr,
+					psDevInfo->sBIFResetPDDevPAddr.uiAddr));
 	}
 
 	

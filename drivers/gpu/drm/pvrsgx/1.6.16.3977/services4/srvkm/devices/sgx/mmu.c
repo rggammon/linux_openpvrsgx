@@ -1322,6 +1322,10 @@ MMU_Finalise (MMU_CONTEXT *psMMUContext)
 	}
 
 	PVR_DPF ((PVR_DBG_MESSAGE, "MMU_Finalise"));
+	PVR_LOG(("MMU_Finalise: freeing MMU context 0x%08X PD=0x%08X (BASE0=0x%08X)",
+			(IMG_UINTPTR_T)psMMUContext,
+			psMMUContext->sPDDevPAddr.uiAddr,
+			psMMUContext->sPDDevPAddr.uiAddr >> EUR_CR_BIF_DIR_LIST_BASE0_ADDR_SHIFT));
 
 	
 	ppsMMUContext = (MMU_CONTEXT**)&psMMUContext->psDevInfo->pvMMUContextList;
