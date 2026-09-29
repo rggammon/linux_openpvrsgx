@@ -771,6 +771,82 @@ static IMG_VOID PVRSRVProcessQueues_ForEachCb(PVRSRV_DEVICE_NODE *psDeviceNode)
 	}
 }
 
+/*
+ * PVRSRVReconcileStrandedSyncsKM
+ *
+ * After a hardware-recovery reset (SGXInitialise re-init) the in-flight render
+ * is discarded, but its source-sync WriteOpsComplete was never advanced to the
+ * WriteOpsPending the reset abandoned.  A queued display flip gated on that sync
+ * then never drains (PVRSRVProcessCommand returns FAILED_DEPENDENCIES because
+ * SYNCOPS_STALE needs complete>=pending), so the client blocks forever in
+ * eglSwapBuffers.  Post-reset nothing is in flight, so a pending command's unmet
+ * source dependency is provably abandoned: advance its WriteOpsComplete to the
+ * captured WriteOpsPending so the flip drains and the client wakes; its next
+ * frame kicks fresh on the reset-clean GPU.  Only source WriteOps are advanced
+ * (the stranded producer); destination and read ops complete normally when the
+ * command is subsequently processed.  Diagnostic: logs each pending source sync.
+ */
+IMG_EXPORT
+IMG_VOID PVRSRVReconcileStrandedSyncsKM(IMG_UINT32 ui32CallerID)
+{
+	SYS_DATA			*psSysData;
+	PVRSRV_QUEUE_INFO	*psQueue;
+	PVRSRV_ERROR		eError;
+
+	SysAcquireData(&psSysData);
+
+	eError = OSLockResource(&psSysData->sQProcessResource, ui32CallerID);
+	if (eError != PVRSRV_OK)
+	{
+		printk(KERN_ERR "PVR_K: PVRSRVReconcileStrandedSyncsKM: queue lock-acquire failed (%d)\n", eError);
+		return;
+	}
+
+	for (psQueue = psSysData->psQueueList; psQueue != IMG_NULL; psQueue = psQueue->psNextKM)
+	{
+		IMG_SIZE_T ui32Offset = psQueue->ui32ReadOffset;
+
+		while (ui32Offset != psQueue->ui32WriteOffset)
+		{
+			PVRSRV_COMMAND *psCommand =
+				(PVRSRV_COMMAND *)((IMG_UINTPTR_T)psQueue->pvLinQueueKM + ui32Offset);
+			IMG_UINT32 i;
+
+			for (i = 0; i < psCommand->ui32SrcSyncCount; i++)
+			{
+				PVRSRV_KERNEL_SYNC_INFO *psSyncInfo = psCommand->psSrcSync[i].psKernelSyncInfoKM;
+				PVRSRV_SYNC_DATA *psSyncData;
+
+				if (psSyncInfo == IMG_NULL)
+				{
+					continue;
+				}
+				psSyncData = psSyncInfo->psSyncData;
+
+				printk(KERN_ERR "PVR_K: reconcile: q 0x%x cmd 0x%x src %u si 0x%x WOC=0x%x WOP=0x%x ROC=0x%x ROP=0x%x\n",
+					(IMG_UINTPTR_T)psQueue, (IMG_UINTPTR_T)psCommand, i,
+					(IMG_UINTPTR_T)psSyncInfo,
+					psSyncData->ui32WriteOpsComplete, psCommand->psSrcSync[i].ui32WriteOpsPending,
+					psSyncData->ui32ReadOpsComplete, psCommand->psSrcSync[i].ui32ReadOpsPending);
+
+				if (psSyncData->ui32WriteOpsComplete != psCommand->psSrcSync[i].ui32WriteOpsPending)
+				{
+					printk(KERN_ERR "PVR_K: reconcile: advancing WOC 0x%x -> 0x%x on si 0x%x\n",
+						psSyncData->ui32WriteOpsComplete,
+						psCommand->psSrcSync[i].ui32WriteOpsPending,
+						(IMG_UINTPTR_T)psSyncInfo);
+					psSyncData->ui32WriteOpsComplete = psCommand->psSrcSync[i].ui32WriteOpsPending;
+				}
+			}
+
+			ui32Offset = (ui32Offset + psCommand->ui32CmdSize) & (psQueue->ui32QueueSize - 1);
+		}
+	}
+
+	OSUnlockResource(&psSysData->sQProcessResource, ui32CallerID);
+}
+
+
 IMG_EXPORT
 PVRSRV_ERROR PVRSRVProcessQueues(IMG_UINT32	ui32CallerID,
 								 IMG_BOOL	bFlush)

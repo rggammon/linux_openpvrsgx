@@ -54,6 +54,9 @@ IMG_IMPORT
 PVRSRV_ERROR PVRSRVProcessQueues (IMG_UINT32	ui32CallerID,
 								  IMG_BOOL		bFlush);
 
+IMG_IMPORT
+IMG_VOID PVRSRVReconcileStrandedSyncsKM (IMG_UINT32	ui32CallerID);
+
 #if defined(__linux__) && defined(__KERNEL__) 
 #include <linux/types.h>
 #include <linux/seq_file.h>
