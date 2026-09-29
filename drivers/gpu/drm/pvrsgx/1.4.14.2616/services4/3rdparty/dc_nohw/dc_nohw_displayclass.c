@@ -452,6 +452,7 @@ static PVRSRV_ERROR DestroyDCSwapChain(IMG_HANDLE hDevice,
 	
 	psDevInfo->psSwapChain = 0;
 
+	DCNohwPresentFlush();
 	DCNohwNotifySwapchain(0, 0);
 
 	
@@ -602,6 +603,15 @@ static int DCNohwBufferIndex(DC_NOHW_DEVINFO *psDevInfo, DC_NOHW_BUFFER *psBuffe
 }
 
 
+void DCNohwCompleteFlip(void *hCmdCookie)
+{
+	DC_NOHW_DEVINFO *psDevInfo = GetAnchorPtr();
+
+	if (psDevInfo && hCmdCookie)
+		psDevInfo->sPVRJTable.pfnPVRSRVCmdComplete((IMG_HANDLE)hCmdCookie, IMG_TRUE);
+}
+
+
 static IMG_BOOL ProcessFlip(IMG_HANDLE	hCmdCookie,
                             IMG_UINT32	ui32DataSize,
                             IMG_VOID	*pvData)
@@ -639,8 +649,11 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE	hCmdCookie,
 	
 	{
 		int iIndex = DCNohwBufferIndex(psDevInfo, psBuffer);
-		if (iIndex >= 0)
+		if (iIndex >= 0) {
 			DCNohwNotifySwap((unsigned int)iIndex);
+			if (DCNohwPresentFlip((unsigned int)iIndex, (void *)hCmdCookie))
+				return (IMG_TRUE);
+		}
 	}
 
 	psDevInfo->sPVRJTable.pfnPVRSRVCmdComplete(hCmdCookie, IMG_FALSE);
