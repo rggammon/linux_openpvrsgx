@@ -974,6 +974,13 @@ static IMG_VOID SGXDumpDebugInfo (PVRSRV_SGXDEV_INFO	*psDevInfo,
 		#if defined(EUR_CR_PDS_PC_BASE)
 			SGXDumpDebugReg(psDevInfo, ui32CoreNum, "EUR_CR_PDS_PC_BASE:      ", EUR_CR_PDS_PC_BASE);
 		#endif
+			PVR_LOG(("(P%u) EDM_TASK_REG0 [0x%03X]: %08X", ui32CoreNum, psDevInfo->ui32EDMTaskReg0,
+					OSReadHWReg(psDevInfo->pvRegsBaseKM, SGX_MP_CORE_SELECT(psDevInfo->ui32EDMTaskReg0, ui32CoreNum))));
+			if (psDevInfo->ui32EDMTaskReg1 != 0)
+			{
+				PVR_LOG(("(P%u) EDM_TASK_REG1 [0x%03X]: %08X", ui32CoreNum, psDevInfo->ui32EDMTaskReg1,
+						OSReadHWReg(psDevInfo->pvRegsBaseKM, SGX_MP_CORE_SELECT(psDevInfo->ui32EDMTaskReg1, ui32CoreNum))));
+			}
 		}
 		PVR_LOG(("SGX PD refs: kernel BASE0=0x%08X reset BASE0=0x%08X (kernelPD=0x%08X resetPD=0x%08X)",
 					psDevInfo->sKernelPDDevPAddr.uiAddr >> EUR_CR_BIF_DIR_LIST_BASE0_ADDR_SHIFT,
