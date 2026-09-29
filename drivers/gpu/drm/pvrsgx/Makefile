@@ -28,7 +28,10 @@
 
 pvr_drv=no
 
-ifeq ($(CONFIG_PVRSGX_1_6_16_3977),y)
+ifeq ($(CONFIG_PVRSGX_1_4_14_2616),y)
+SUBPATH=1.4.14.2616
+pvr_omap3_only=yes
+else ifeq ($(CONFIG_PVRSGX_1_6_16_3977),y)
 SUBPATH=1.6.16.3977
 pvr_omap3_only=yes
 else ifeq ($(CONFIG_PVRSGX_1_7_862890),y)
@@ -124,7 +127,7 @@ else # pvr_drv
 	@$(kecho) "  MAKE    $(obj): omap3"
 	$(Q)TI_PLATFORM=omap3 $(MAKE) $(build)=$(SOURCE)
 	$(Q)if [ -r $(SOURCE)/modules.order ]; then cat $(SOURCE)/modules.order >>$(obj)/modules.order; fi
-ifneq ($(CONFIG_PVRSGX_1_6_16_3977_DC_NOHW),)
+ifneq ($(CONFIG_PVRSGX_1_4_14_2616_DC_NOHW)$(CONFIG_PVRSGX_1_6_16_3977_DC_NOHW),)
 	@$(kecho) "  MAKE    $(obj): dc_nohw"
 	$(Q)KBUILD_EXTRA_SYMBOLS=$(SOURCE)/Module.symvers $(MAKE) $(build)=$(SOURCE)/services4/3rdparty/dc_nohw
 	$(Q)if [ -r $(SOURCE)/services4/3rdparty/dc_nohw/modules.order ]; then cat $(SOURCE)/services4/3rdparty/dc_nohw/modules.order >>$(obj)/modules.order; fi
@@ -137,6 +140,8 @@ ifneq ($(pvr_omap3_only),yes)
 	$(Q)TI_PLATFORM=ti335x $(MAKE) $(build)=$(SOURCE)
 	$(Q)if [ -r $(SOURCE)/modules.order ]; then cat $(SOURCE)/modules.order >>$(obj)/modules.order; fi
 endif
+# may add more SOC variants here, e.g.
+# $(Q)CONFIG_SOC=generic $(MAKE) $(build)=$(SOURCE)
 # $(Q)CONFIG_SOC=omap5 $(MAKE) $(build)=$(obj)/omap5
 endif # CONFIG_PVRSGX_1_14_3699939
 endif # CONFIG_SGX_OMAP

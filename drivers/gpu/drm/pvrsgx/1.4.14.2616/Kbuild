@@ -1,0 +1,83 @@
+obj-m	:= pvrsrvkm.o
+
+FILES := \
+services4/srvkm/common/queue.c \
+services4/srvkm/common/hash.c \
+services4/srvkm/common/perproc.c \
+services4/srvkm/common/mem.c \
+services4/srvkm/common/power.c \
+services4/srvkm/common/deviceclass.c \
+services4/srvkm/common/metrics.c \
+services4/srvkm/common/resman.c \
+services4/srvkm/common/buffer_manager.c \
+services4/srvkm/common/pvrsrv.c \
+services4/srvkm/common/handle.c \
+services4/srvkm/common/lists.c \
+services4/srvkm/common/ra.c \
+services4/srvkm/common/devicemem.c \
+services4/srvkm/env/linux/pvr_debug.c \
+services4/srvkm/env/linux/mm.c \
+services4/srvkm/env/linux/mutex.c \
+services4/srvkm/env/linux/mmap.c \
+services4/srvkm/env/linux/module.c \
+services4/srvkm/env/linux/event.c \
+services4/srvkm/env/linux/osfunc.c \
+services4/srvkm/env/linux/pvr_bridge_k.c \
+services4/srvkm/env/linux/pdump.c \
+services4/srvkm/env/linux/mutils.c \
+services4/srvkm/env/linux/osperproc.c \
+services4/srvkm/devices/sgx/sgxtransfer.c \
+services4/srvkm/devices/sgx/sgxinit.c \
+services4/srvkm/devices/sgx/sgxutils.c \
+services4/srvkm/devices/sgx/pb.c \
+services4/srvkm/devices/sgx/sgxkick.c \
+services4/srvkm/devices/sgx/mmu.c \
+services4/srvkm/devices/sgx/sgxreset.c \
+services4/srvkm/devices/sgx/sgxpower.c \
+services4/srvkm/bridged/bridged_pvr_bridge.c \
+services4/srvkm/bridged/bridged_support.c \
+services4/srvkm/bridged/sgx/bridged_sgx_bridge.c \
+services4/system/$(TI_PLATFORM)/sysutils_linux.c \
+services4/system/$(TI_PLATFORM)/sysconfig.c \
+
+ifeq ($(CONFIG_PVRSGX_1_4_14_2616_PROCFS),y)
+FILES += services4/srvkm/env/linux/proc.c
+else
+FILES += services4/srvkm/env/linux/proc_stub.c
+endif
+
+ccflags-y += -I$(src)/include4
+ccflags-y += -I$(src)/services4/include
+ccflags-y += -I$(src)/services4/srvkm/include
+ccflags-y += -I$(src)/services4/srvkm/hwdefs
+ccflags-y += -I$(src)/services4/srvkm/bridged
+ccflags-y += -I$(src)/services4/srvkm/devices/sgx
+ccflags-y += -I$(src)/services4/srvkm/env/linux
+ccflags-y += -I$(src)/services4/system/include
+ccflags-y += -I$(src)/services4/system/$(TI_PLATFORM)
+ccflags-y += -I$(src)/services4/srvkm/bridged/sgx
+
+ccflags-y += -DMODULE
+ccflags-y += -DLINUX -DRELEASE -DSERVICES4 -D_XOPEN_SOURCE=600
+ccflags-y += -DPVR2D_VALIDATE_INPUT_PARAMS
+ccflags-y += -DSGX530 -DSUPPORT_SGX530 -DSGX_CORE_REV=103
+ccflags-y += -DSUPPORT_SRVINIT -DSUPPORT_SGX
+ccflags-y += -DSUPPORT_PERCONTEXT_PB -DTRANSFER_QUEUE
+ccflags-y += -DPVR_SECURE_HANDLES -DPVR_SECURE_FD_EXPORT
+ccflags-y += -DSUPPORT_SGX_EVENT_OBJECT -DLDM_PLATFORM
+ccflags-y += -DPVR2D_ALT_2DHW -DSUPPORT_SGX_HWPERF
+ccflags-y += -DSUPPORT_SGX_LOW_LATENCY_SCHEDULING
+ccflags-y += -DSYS_USING_INTERRUPTS -DSUPPORT_HW_RECOVERY
+ccflags-y += -DSUPPORT_ACTIVE_POWER_MANAGEMENT
+ccflags-y += -DSYS_SGX_ACTIVE_POWER_LATENCY_MS=100
+ccflags-y += -DPVR_LINUX_USING_WORKQUEUES
+ccflags-y += -DPVR_LINUX_MISR_USING_PRIVATE_WORKQUEUE
+ccflags-y += -DPVR_PROC_USE_SEQ_FILE
+
+pvrsrvkm-y	:= $(FILES:.c=.o)
+
+
+ifeq ($(VERSION), 3)
+ccflags-y += -DAUTOCONF_INCLUDED
+endif
+
