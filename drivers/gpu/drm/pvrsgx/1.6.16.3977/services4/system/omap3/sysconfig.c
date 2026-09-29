@@ -32,6 +32,31 @@
 #include "syslocal.h"
 #include "sysconfig.h"
 
+#if defined(__linux__) && !defined(NO_HARDWARE)
+#include <linux/of.h>
+#include <linux/of_irq.h>
+
+static const struct of_device_id gasSGXOfMatch[] = {
+	{ .compatible = "ti,omap3430-gpu" },
+	{ .compatible = "img,powervr-sgx530" },
+	{ }
+};
+
+/* Linux IRQ numbers are allocated dynamically; map the SGX line from the DT. */
+static IMG_INT SysGetSGXIRQ(IMG_VOID)
+{
+	struct device_node *psNode = of_find_matching_node(NULL, gasSGXOfMatch);
+	IMG_INT iIRQ = 0;
+
+	if (psNode)
+	{
+		iIRQ = irq_of_parse_and_map(psNode, 0);
+		of_node_put(psNode);
+	}
+	return iIRQ;
+}
+#endif
+
 #include "ocpdefs.h"
 
 #if !defined(NO_HARDWARE) && \
@@ -245,7 +270,20 @@ static PVRSRV_ERROR SysLocateDevices(SYS_DATA *psSysData)
 	gsSGXDeviceMap.sRegsCpuPBase = SysSysPAddrToCpuPAddr(gsSGXDeviceMap.sRegsSysPBase);
 	gsSGXDeviceMap.ui32RegsSize = SYS_OMAP3430_SGX_REGS_SIZE;
 
+#if defined(__linux__)
+	{
+		IMG_INT iIRQ = SysGetSGXIRQ();
+
+		if (iIRQ <= 0)
+		{
+			PVR_DPF((PVR_DBG_ERROR, "SysLocateDevices: no SGX interrupt in the device tree"));
+			return PVRSRV_ERROR_INVALID_DEVICE;
+		}
+		gsSGXDeviceMap.ui32IRQ = (IMG_UINT32)iIRQ;
+	}
+#else
 	gsSGXDeviceMap.ui32IRQ = SYS_OMAP3430_SGX_IRQ;
+#endif
 
 #endif 
 
