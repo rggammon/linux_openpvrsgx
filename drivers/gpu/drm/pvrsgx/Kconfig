@@ -11,6 +11,13 @@ choice
 	  Support for the PowerVR SGX 3D core based on DDK code
 	  variant as selected.
 	
+config PVRSGX_1_4_14_2616
+				bool "DDK 1.4.14.2616 (TI/OpenPandora)"
+				depends on ARCH_OMAP3
+				help
+					This version supports early OMAP3530 devices with SGX530
+					core revision 1.0.3.
+
 config PVRSGX_1_7_862890
 	bool "DDK 1.7.862890 (Intel)"
 	help
@@ -56,6 +63,19 @@ config PVRSGX_1_17_4948957
 	bool "DDK 1.17.4948957 (TI)"
 
 endchoice
+
+config PVRSGX_1_4_14_2616_PROCFS
+	bool "Enable legacy DDK 1.4 procfs diagnostics"
+	depends on PVRSGX_1_4_14_2616
+	help
+	  Build the original procfs diagnostics. Leave disabled for
+	  Services-only bring-up on current kernels.
+
+config PVRSGX_1_4_14_2616_DC_NOHW
+	bool "Build the headless display class"
+	depends on PVRSGX_1_4_14_2616
+	help
+	  Register an in-memory display device for offscreen PVR2D tests.
 
 if SGX && PVRSGX_1_17_4948957
 menuconfig SGX_ABI
