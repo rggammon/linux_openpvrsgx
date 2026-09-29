@@ -69,6 +69,7 @@ PVRSRV_ERROR SGXDoKickKM(IMG_HANDLE hDevHandle, SGX_CCB_KICK *psCCBKick)
 	
 	
 	psTACmd = CCB_DATA_FROM_OFFSET(SGXMKIF_CMDTA_SHARED, psCCBMemInfo, psCCBKick, ui32CCBOffset);
+	SGXRecordKickProcess();
 
 	
 	if (psCCBKick->hTA3DSyncInfo)

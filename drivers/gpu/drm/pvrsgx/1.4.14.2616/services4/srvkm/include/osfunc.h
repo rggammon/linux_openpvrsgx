@@ -234,6 +234,7 @@ static INLINE PVRSRV_ERROR OSReleaseSubMemHandle(IMG_HANDLE hOSMemHandle, IMG_UI
 #endif
 
 IMG_UINT32 OSGetCurrentProcessIDKM(IMG_VOID);
+IMG_VOID OSGetCurrentProcessNameKM(IMG_CHAR *pszName, IMG_UINT32 ui32Size);
 IMG_UINT32 OSGetCurrentThreadID( IMG_VOID );
 IMG_VOID OSMemSet(IMG_VOID *pvDest, IMG_UINT8 ui8Value, IMG_SIZE_T ui32Size);
 

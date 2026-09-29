@@ -509,6 +509,11 @@ IMG_VOID OSWaitus(IMG_UINT32 ui32Timeus)
 }
 
 
+IMG_VOID OSGetCurrentProcessNameKM(IMG_CHAR *pszName, IMG_UINT32 ui32Size)
+{
+    strscpy(pszName, in_interrupt() ? "<irq>" : current->comm, ui32Size);
+}
+
 IMG_UINT32 OSGetCurrentProcessIDKM(IMG_VOID)
 {
     if (in_interrupt())

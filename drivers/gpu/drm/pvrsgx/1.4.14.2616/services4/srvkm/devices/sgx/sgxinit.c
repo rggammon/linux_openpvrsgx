@@ -960,6 +960,18 @@ IMG_VOID SGXDumpDebugInfo (PVRSRV_DEVICE_NODE *psDeviceNode,
 }
 
 
+/* Last submitter, for HWR logs; the recovery paths can't safely walk contexts without the bridge lock. */
+static IMG_UINT32 gui32LastKickPID;
+static IMG_CHAR gszLastKickComm[16];
+/* Set when recovery couldn't take the power lock; SGXOSTimer retries it. */
+static volatile IMG_BOOL gbHWRPending = IMG_FALSE;
+
+IMG_VOID SGXRecordKickProcess(IMG_VOID)
+{
+	gui32LastKickPID = OSGetCurrentProcessIDKM();
+	OSGetCurrentProcessNameKM(gszLastKickComm, sizeof(gszLastKickComm));
+}
+
 #if defined(SYS_USING_INTERRUPTS) || defined(SUPPORT_HW_RECOVERY)
 static
 IMG_VOID HWRecoveryResetSGX (PVRSRV_DEVICE_NODE *psDeviceNode,
@@ -969,6 +981,8 @@ IMG_VOID HWRecoveryResetSGX (PVRSRV_DEVICE_NODE *psDeviceNode,
 	PVRSRV_ERROR		eError;
 	PVRSRV_SGXDEV_INFO	*psDevInfo = (PVRSRV_SGXDEV_INFO*)psDeviceNode->pvDevice;
 	SGXMKIF_HOST_CTL	*psSGXHostCtl = (SGXMKIF_HOST_CTL *)psDevInfo->psSGXHostCtl;
+	const IMG_CHAR		*pszTrigger = gbHWRPending ? "deferred retry" :
+					(ui32CallerID == ISR_ID) ? "firmware HWR interrupt" : "host lockup watchdog";
 
 	PVR_UNREFERENCED_PARAMETER(ui32Component);
 
@@ -981,12 +995,24 @@ IMG_VOID HWRecoveryResetSGX (PVRSRV_DEVICE_NODE *psDeviceNode,
 
 
 		PVR_DPF((PVR_DBG_WARNING,"HWRecoveryResetSGX: Power transition in progress"));
+		gbHWRPending = IMG_TRUE;
+		PVR_LOG(("HWRecoveryResetSGX: power lock busy (%s), recovery deferred to next timer tick", pszTrigger));
 		return;
 	}
 
 	psSGXHostCtl->ui32InterruptClearFlags |= PVRSRV_USSE_EDM_INTERRUPT_HWR;
 
-	PVR_LOG(("HWRecoveryResetSGX: SGX Hardware Recovery triggered"));
+	gbHWRPending = IMG_FALSE;
+	PVR_LOG(("HWRecoveryResetSGX: SGX Hardware Recovery triggered (%s) last-kick pid=%u (%s) "
+		"EVENT_STATUS=%08x EVENT_STATUS2=%08x BIF_INT_STAT=%08x BIF_FAULT=%08x "
+		"BIF_MEM_REQ_STAT=%08x DIR_LIST_BASE0=%08x",
+		pszTrigger, gui32LastKickPID, gszLastKickComm,
+		OSReadHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_EVENT_STATUS),
+		OSReadHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_EVENT_STATUS2),
+		OSReadHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_BIF_INT_STAT),
+		OSReadHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_BIF_FAULT),
+		OSReadHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_BIF_MEM_REQ_STAT),
+		OSReadHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_BIF_DIR_LIST_BASE0)));
 
 	SGXDumpDebugInfo(psDeviceNode, IMG_TRUE);
 
@@ -1041,6 +1067,8 @@ IMG_VOID SGXOSTimer(IMG_VOID *pvData)
 	if (bPoweredDown)
 	{
 		ui32LockupCounter = 0;
+		/* Power-up reinitialises the SGX, so a deferred recovery is moot. */
+		gbHWRPending = IMG_FALSE;
 	}
 	else
 	{
@@ -1079,6 +1107,11 @@ IMG_VOID SGXOSTimer(IMG_VOID *pvData)
 
 		
 		HWRecoveryResetSGX(psDeviceNode, 0, KERNEL_ID);
+	}
+	else if (gbHWRPending)
+	{
+		/* ISR_ID only tries the power lock once, so a busy lock can't stall the timer. */
+		HWRecoveryResetSGX(psDeviceNode, 0, ISR_ID);
 	}
 }
 #endif 
