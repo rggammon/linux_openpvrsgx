@@ -538,9 +538,14 @@ IMG_VOID SGXCleanupRequest(PVRSRV_DEVICE_NODE	*psDeviceNode,
 	PVRSRV_SGXDEV_INFO		*psSGXDevInfo = psDeviceNode->pvDevice;
 	PVRSRV_KERNEL_MEM_INFO	*psSGXHostCtlMemInfo = psSGXDevInfo->psKernelSGXHostCtlMemInfo;
 	SGXMKIF_HOST_CTL		*psSGXHostCtl = psSGXHostCtlMemInfo->pvLinAddrKM;
+	IMG_UINT32			ui32ProbeStart = 0;
+	IMG_UINT32			ui32ProbeStatus = 0;
+	IMG_BOOL			bProbePollOK = IMG_TRUE;
 
 	if ((psSGXHostCtl->ui32PowerStatus & PVRSRV_USSE_EDM_POWMAN_NO_WORK) != 0)
 	{
+		PVR_LOG(("SGXCleanupRequest: type=%u skipped, ukernel NO_WORK (powerstatus=0x%x)",
+				 ui32CleanupType, psSGXHostCtl->ui32PowerStatus));
 		
 	}
 	else
@@ -560,11 +565,17 @@ IMG_VOID SGXCleanupRequest(PVRSRV_DEVICE_NODE	*psDeviceNode,
 
 		
 		#if !defined(NO_HARDWARE)
-		if(PollForValueKM(&psSGXHostCtl->ui32CleanupStatus,
+		ui32ProbeStart = OSClockus();
+		bProbePollOK = (PollForValueKM(&psSGXHostCtl->ui32CleanupStatus,
 						  PVRSRV_USSE_EDM_CLEANUPCMD_COMPLETE,
 						  PVRSRV_USSE_EDM_CLEANUPCMD_COMPLETE,
 						  2 * MAX_HW_TIME_US/WAIT_TRY_COUNT,
-						  WAIT_TRY_COUNT) != PVRSRV_OK)
+					  WAIT_TRY_COUNT) == PVRSRV_OK);
+		ui32ProbeStatus = psSGXHostCtl->ui32CleanupStatus;
+		PVR_LOG(("SGXCleanupRequest: type=%u poll=%s status=0x%x elapsed=%uus",
+				 ui32CleanupType, bProbePollOK ? "COMPLETE" : "TIMEOUT",
+				 ui32ProbeStatus, OSClockus() - ui32ProbeStart));
+		if(!bProbePollOK)
 		{
 			PVR_DPF((PVR_DBG_ERROR,"SGXCleanupRequest: Wait for uKernel to clean up (%u) failed", ui32CleanupType));
 			PVR_DBG_BREAK;
