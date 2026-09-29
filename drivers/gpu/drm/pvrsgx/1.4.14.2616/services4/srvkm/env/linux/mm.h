@@ -289,6 +289,7 @@ IMG_VOID LinuxMemAreaRegister(LinuxMemArea *psLinuxMemArea);
 
 
 IMG_VOID *LinuxMemAreaToCpuVAddr(LinuxMemArea *psLinuxMemArea);
+IMG_VOID inv_cache_mem_area(LinuxMemArea *psLinuxMemArea);
 
 
 IMG_CPU_PHYADDR LinuxMemAreaToCpuPAddr(LinuxMemArea *psLinuxMemArea, IMG_UINT32 ui32ByteOffset);

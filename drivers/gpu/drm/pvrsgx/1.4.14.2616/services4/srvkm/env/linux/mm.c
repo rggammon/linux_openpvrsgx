@@ -37,6 +37,8 @@
 #endif
 #include <linux/slab.h>
 #include <linux/highmem.h>
+#include <asm/cacheflush.h>
+#include <asm/outercache.h>
 #include <linux/sched.h>
 
 #include "img_defs.h"
@@ -2368,3 +2370,44 @@ HAPFlagsToString(IMG_UINT32 ui32Flags)
 }
 #endif
 
+
+
+/* Port of Nokia N9 pvr inv_cache_mem_area: drop stale kernel-alias lines of new WC/UC GPU memory. */
+static IMG_VOID inv_cache_page(struct page *psPage)
+{
+    IMG_VOID *pvVA = kmap_local_page(psPage);
+    phys_addr_t sPA = page_to_phys(psPage);
+
+    __cpuc_flush_dcache_area(pvVA, PAGE_SIZE);
+    kunmap_local(pvVA);
+    outer_flush_range(sPA, sPA + PAGE_SIZE);
+}
+
+IMG_VOID inv_cache_mem_area(LinuxMemArea *psLinuxMemArea)
+{
+    IMG_UINT32 ui32Pages = RANGE_TO_PAGES(psLinuxMemArea->ui32ByteSize);
+    IMG_UINT32 i;
+
+    switch (psLinuxMemArea->eAreaType)
+    {
+        case LINUX_MEM_AREA_VMALLOC:
+        {
+            IMG_CHAR *pcVA = (IMG_CHAR *)psLinuxMemArea->uData.sVmalloc.pvVmallocAddress;
+
+            for (i = 0; i < ui32Pages; i++)
+            {
+                inv_cache_page(vmalloc_to_page(pcVA + i * PAGE_SIZE));
+            }
+            break;
+        }
+        case LINUX_MEM_AREA_ALLOC_PAGES:
+            for (i = 0; i < ui32Pages; i++)
+            {
+                inv_cache_page(psLinuxMemArea->uData.sPageList.pvPageList[i]);
+            }
+            break;
+        default:
+            PVR_DPF((PVR_DBG_ERROR, "%s: unsupported area type %d", __FUNCTION__, psLinuxMemArea->eAreaType));
+            break;
+    }
+}

@@ -212,6 +212,11 @@ OSAllocPages_Impl(IMG_UINT32 ui32AllocFlags,
             return PVRSRV_ERROR_INVALID_PARAMS;
     }
 
+    if(ui32AllocFlags & (PVRSRV_HAP_WRITECOMBINE | PVRSRV_HAP_UNCACHED))
+    {
+        inv_cache_mem_area(psLinuxMemArea);
+    }
+
 #if defined(SUPPORT_CACHEFLUSH_ON_ALLOC)
     
     if(ui32AllocFlags & (PVRSRV_HAP_WRITECOMBINE | PVRSRV_HAP_UNCACHED))
