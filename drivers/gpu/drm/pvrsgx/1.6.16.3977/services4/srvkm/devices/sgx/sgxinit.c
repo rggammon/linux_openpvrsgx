@@ -1167,6 +1167,7 @@ IMG_VOID SGXOSTimer(IMG_VOID *pvData)
 	static IMG_BOOL		bBRN31093Inval = IMG_FALSE;
 #endif
 	IMG_UINT32		ui32CurrentEDMTasks;
+	IMG_BOOL		bIdle = IMG_FALSE;
 	IMG_BOOL		bLockup = IMG_FALSE;
 	IMG_BOOL		bPoweredDown;
 
@@ -1177,11 +1178,18 @@ IMG_VOID SGXOSTimer(IMG_VOID *pvData)
 	bPoweredDown = IMG_TRUE;
 #else
 	bPoweredDown = (SGXIsDevicePowered(psDeviceNode)) ? IMG_FALSE : IMG_TRUE;
+	/* Busy-gate: a parked EDM counter on an idle SGX (kernel CCB drained and no
+	   outstanding BIF memory requests) is not a lockup; a real hang keeps work in
+	   flight, so genuine lockups are still detected. */
+	bIdle = (!bPoweredDown)
+		&& (psDevInfo->psKernelCCBCtl->ui32ReadOffset == psDevInfo->psKernelCCBCtl->ui32WriteOffset)
+		&& (OSReadHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_BIF_MEM_REQ_STAT) == 0);
+
 #endif 
 
 	
 	
-	if (bPoweredDown)
+	if (bPoweredDown || bIdle)
 	{
 		ui32LockupCounter = 0;
 	#if defined(FIX_HW_BRN_31093)
