@@ -57,6 +57,7 @@ ccflags-y += -I$(src)/services4/system/include
 ccflags-y += -I$(src)/services4/system/$(TI_PLATFORM)
 ccflags-y += -I$(src)/services4/srvkm/bridged/sgx
 
+ccflags-y += -DMODULE
 ccflags-y += -DLINUX -DRELEASE -DSERVICES4 -D_XOPEN_SOURCE=600
 ccflags-y += -DPVR2D_VALIDATE_INPUT_PARAMS
 ccflags-y += -DSGX530 -DSUPPORT_SGX530 -DSGX_CORE_REV=103
@@ -74,9 +75,6 @@ ccflags-y += -DPVR_PROC_USE_SEQ_FILE
 
 pvrsrvkm-y	:= $(FILES:.c=.o)
 
-ifeq ($(CONFIG_PVRSGX_1_4_14_2616_DC_NOHW),y)
-obj-y += services4/3rdparty/dc_nohw/
-endif
 
 ifeq ($(VERSION), 3)
 ccflags-y += -DAUTOCONF_INCLUDED

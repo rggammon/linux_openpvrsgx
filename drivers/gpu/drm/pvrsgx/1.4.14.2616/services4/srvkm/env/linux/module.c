@@ -727,3 +727,5 @@ MODULE_DESCRIPTION("PowerVR SGX530 Services driver (DDK 1.4.14.2616)");
 module_init(PVRCore_Init);
 module_exit(PVRCore_Cleanup);
 #endif
+
+MODULE_LICENSE("GPL");
