@@ -54,6 +54,9 @@
 #include "dc_nohw.h"
 #include "pvrmodule.h"
 
+#include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
+
 #if defined(SUPPORT_DRI_DRM)
 #include "pvr_drm.h"
 #endif
@@ -72,6 +75,24 @@
 #define DRVNAME "dcnohw"
 
 #define unref__ __attribute__ ((unused))
+
+/* Synthetic device for the contiguous CMA swapchain buffers + DMA-BUF export. */
+static struct platform_device *gpsDcNohwDev;
+
+struct device *DCNohwGetDev(void)
+{
+	return gpsDcNohwDev ? &gpsDcNohwDev->dev : NULL;
+}
+
+/* Alias every swapchain buffer to back buffer 0: keeps the flip-command and
+ * source-sync accounting, removes cold-buffer rotation. Toggle at runtime. */
+unsigned int gWarmSwapchain = 0;
+module_param(gWarmSwapchain, uint, 0644);
+
+/* cached=1 -> dma_alloc_noncoherent (CPU-cached contiguous) vs dma_alloc_coherent (write-combine);
+ * tests whether the non-cached CMA flip render-target is the storm trigger. */
+unsigned int gCachedBuffers = 0;
+module_param(gCachedBuffers, uint, 0644);
 
 #if defined(DC_NOHW_GET_BUFFER_DIMENSIONS)
 static unsigned long width = DC_NOHW_BUFFER_WIDTH;
@@ -127,8 +148,36 @@ int PVR_DRM_MAKENAME(DISPLAY_CONTROLLER, _Init)(struct drm_device unref__ *dev)
 static int __init DC_NOHW_Init(void)
 #endif
 {
+	int iError;
+
+	gpsDcNohwDev = platform_device_register_simple(DRVNAME, -1, NULL, 0);
+	if (IS_ERR(gpsDcNohwDev))
+	{
+		iError = PTR_ERR(gpsDcNohwDev);
+		gpsDcNohwDev = NULL;
+		printk(KERN_ERR DRVNAME ": DC_NOHW_Init: platform_device_register failed (%d)\n", iError);
+		return iError;
+	}
+	if (dma_coerce_mask_and_coherent(&gpsDcNohwDev->dev, DMA_BIT_MASK(32)))
+	{
+		platform_device_unregister(gpsDcNohwDev);
+		gpsDcNohwDev = NULL;
+		printk(KERN_ERR DRVNAME ": DC_NOHW_Init: no 32-bit DMA mask\n");
+		return -ENODEV;
+	}
+
 	if(Init() != DC_OK)
 	{
+		platform_device_unregister(gpsDcNohwDev);
+		gpsDcNohwDev = NULL;
+		return -ENODEV;
+	}
+
+	if (DCNohwExportInit() != 0)
+	{
+		Deinit();
+		platform_device_unregister(gpsDcNohwDev);
+		gpsDcNohwDev = NULL;
 		return -ENODEV;
 	}
 
@@ -141,9 +190,17 @@ void PVR_DRM_MAKENAME(DISPLAY_CONTROLLER, _Cleanup)(struct drm_device unref__ *d
 static void __exit DC_NOHW_Cleanup(void)
 #endif
 {
+	DCNohwExportDeinit();
+
 	if(Deinit() != DC_OK)
 	{
 		printk (KERN_INFO DRVNAME ": DC_NOHW_Cleanup: can't deinit device\n");
+	}
+
+	if (gpsDcNohwDev)
+	{
+		platform_device_unregister(gpsDcNohwDev);
+		gpsDcNohwDev = NULL;
 	}
 } 
 
@@ -243,7 +300,10 @@ DC_ERROR AllocContigMemory(unsigned long ulSize,
 	dma_addr_t dma;
 	IMG_VOID *pvLinAddr;
 
-	pvLinAddr = dma_alloc_coherent(NULL, ulSize, &dma, GFP_KERNEL);
+	if (gCachedBuffers)
+		pvLinAddr = dma_alloc_noncoherent(&gpsDcNohwDev->dev, ulSize, &dma, DMA_BIDIRECTIONAL, GFP_KERNEL);
+	else
+		pvLinAddr = dma_alloc_coherent(&gpsDcNohwDev->dev, ulSize, &dma, GFP_KERNEL);
 
 	if (pvLinAddr == NULL)
 	{
@@ -274,7 +334,10 @@ void FreeContigMemory(unsigned long ulSize,
 	}
 	kfree(LinAddr);
 #else	
-	dma_free_coherent(NULL, ulSize, LinAddr, (dma_addr_t)PhysAddr.uiAddr);
+	if (gCachedBuffers)
+		dma_free_noncoherent(&gpsDcNohwDev->dev, ulSize, LinAddr, (dma_addr_t)PhysAddr.uiAddr, DMA_BIDIRECTIONAL);
+	else
+		dma_free_coherent(&gpsDcNohwDev->dev, ulSize, LinAddr, (dma_addr_t)PhysAddr.uiAddr);
 #endif	
 }
 #endif	
@@ -310,3 +373,6 @@ MODULE_DESCRIPTION("PowerVR Services headless display class");
 module_init(DC_NOHW_Init);
 module_exit(DC_NOHW_Cleanup);
 #endif
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("dc_nohw DDK 1.4 (graft)");

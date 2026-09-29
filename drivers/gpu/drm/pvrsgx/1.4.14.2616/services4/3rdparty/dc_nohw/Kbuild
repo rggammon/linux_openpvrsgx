@@ -25,7 +25,7 @@
 
 ccflags-y += -DLINUX
 ccflags-y += -DMODULE
-ccflags-y += -DDC_NOHW_DISCONTIG_BUFFERS -DDC_NOHW_GET_BUFFER_DIMENSIONS
+ccflags-y += -DDC_NOHW_GET_BUFFER_DIMENSIONS
 ccflags-y += -DDC_NOHW_BUFFER_WIDTH=1024 -DDC_NOHW_BUFFER_HEIGHT=600
 ccflags-y += -DDC_NOHW_BUFFER_BIT_DEPTH=32
 ccflags-y += -I$(src)
@@ -35,4 +35,4 @@ ccflags-y += -I$(src)/../../../services4/system/omap3
 ccflags-y += -I$(src)/../../../services4/system/include
 
 obj-m := dcnohw.o
-dcnohw-y := dc_nohw_displayclass.o dc_nohw_linux.o
+dcnohw-y := dc_nohw_displayclass.o dc_nohw_linux.o dc_nohw_export.o

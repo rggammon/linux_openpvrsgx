@@ -26,6 +26,7 @@
 
 #if defined(__linux__)
 #include <linux/string.h>
+#include <linux/kernel.h>
 #else
 #include <string.h>
 #endif
@@ -43,6 +44,8 @@
 static void *gpvAnchor = 0;
 static PFN_DC_GET_PVRJTABLE pfnGetPVRJTable = 0;
 
+extern unsigned int gWarmSwapchain;
+
 
 
 
@@ -54,6 +57,55 @@ static DC_NOHW_DEVINFO * GetAnchorPtr(void)
 static void SetAnchorPtr(DC_NOHW_DEVINFO *psDevInfo)
 {
 	gpvAnchor = (void *)psDevInfo;
+}
+
+/* Plain-typed geometry/buffer accessors for the DMA-BUF exporter. */
+int DCNohwGetGeometry(unsigned int *width, unsigned int *height,
+                      unsigned int *stride, unsigned int *count,
+                      unsigned int *buffer_size)
+{
+	DC_NOHW_DEVINFO *psDevInfo = GetAnchorPtr();
+	unsigned int i, n = 0;
+
+	if (!psDevInfo)
+		return -ENODEV;
+
+	for (i = 0; i < DC_NOHW_MAX_BACKBUFFERS; i++)
+		if (psDevInfo->asBackBuffers[i].sCPUVAddr)
+			n++;
+
+	if (width)
+		*width = psDevInfo->sSysDims.ui32Width;
+	if (height)
+		*height = psDevInfo->sSysDims.ui32Height;
+	if (stride)
+		*stride = psDevInfo->sSysDims.ui32ByteStride;
+	if (count)
+		*count = n;
+	if (buffer_size)
+		*buffer_size = psDevInfo->ui32BufferSize;
+	return 0;
+}
+
+int DCNohwGetBufferInfo(unsigned int index, void **cpu_vaddr,
+                        unsigned int *dma_addr, unsigned int *size)
+{
+	DC_NOHW_DEVINFO *psDevInfo = GetAnchorPtr();
+
+	if (!psDevInfo)
+		return -ENODEV;
+	if (index >= DC_NOHW_MAX_BACKBUFFERS)
+		return -EINVAL;
+	if (!psDevInfo->asBackBuffers[index].sCPUVAddr)
+		return -ENOENT;
+
+	if (cpu_vaddr)
+		*cpu_vaddr = psDevInfo->asBackBuffers[index].sCPUVAddr;
+	if (dma_addr)
+		*dma_addr = (unsigned int)psDevInfo->asBackBuffers[index].sSysAddr.uiAddr;
+	if (size)
+		*size = psDevInfo->ui32BufferSize;
+	return 0;
 }
 
 #if !defined(DC_NOHW_DISCONTIG_BUFFERS) && !defined(USE_BASE_VIDEO_FRAMEBUFFER)
@@ -348,16 +400,20 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	
 	for(i=0; i<ui32BufferCount; i++)
 	{
+		/* warm: alias to back buffer 0 (no cold rotation); sync accounting stays per-buffer */
+		IMG_UINT32 j = gWarmSwapchain ? 0 : i;
 		psBuffer[i].psSyncData = ppsSyncData[i];
 #if defined(DC_NOHW_DISCONTIG_BUFFERS)
-		psBuffer[i].psSysAddr = psDevInfo->asBackBuffers[i].psSysAddr;
+		psBuffer[i].psSysAddr = psDevInfo->asBackBuffers[j].psSysAddr;
 #else
-		psBuffer[i].sSysAddr = psDevInfo->asBackBuffers[i].sSysAddr;
+		psBuffer[i].sSysAddr = psDevInfo->asBackBuffers[j].sSysAddr;
 #endif
-		psBuffer[i].sDevVAddr = psDevInfo->asBackBuffers[i].sDevVAddr;
-		psBuffer[i].sCPUVAddr = psDevInfo->asBackBuffers[i].sCPUVAddr;
+		psBuffer[i].sDevVAddr = psDevInfo->asBackBuffers[j].sDevVAddr;
+		psBuffer[i].sCPUVAddr = psDevInfo->asBackBuffers[j].sCPUVAddr;
 		psBuffer[i].hSwapChain = (DC_HANDLE)psSwapChain;
 	}
+
+	pr_debug("dcnohw: CreateDCSwapChain bufcount=%u warm=%u\n", ui32BufferCount, gWarmSwapchain);
 
 	
 	psDevInfo->psSwapChain = psSwapChain;
@@ -558,7 +614,7 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE	hCmdCookie,
 
 	psBuffer = (DC_NOHW_BUFFER*)psFlipCmd->hExtBuffer;
 
-	
+
 	eError = Flip(psDevInfo, psBuffer);
 	if(eError != DC_OK)
 	{

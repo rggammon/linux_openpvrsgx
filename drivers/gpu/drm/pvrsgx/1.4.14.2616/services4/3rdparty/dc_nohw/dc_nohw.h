@@ -162,6 +162,23 @@ typedef enum _DC_ERROR_
 	DC_ERROR_DEVICE_REGISTER_FAILED 	=  8
 } DC_ERROR;
 
+/* Kernel-internal accessors for the DMA-BUF exporter (dc_nohw_export.c). */
+struct device;
+int DCNohwExportInit(void);
+void DCNohwExportDeinit(void);
+struct device *DCNohwGetDev(void);
+int DCNohwGetGeometry(unsigned int *width, unsigned int *height,
+                      unsigned int *stride, unsigned int *count,
+                      unsigned int *buffer_size);
+int DCNohwGetBufferInfo(unsigned int index, void **cpu_vaddr,
+                        unsigned int *dma_addr, unsigned int *size);
+
+/* Swap-notify emit hooks (defined in dc_nohw_export.c; wired in a later stage). */
+void DCNohwNotifySwapchain(int create, unsigned int buffer_count);
+void DCNohwNotifySwap(unsigned int index);
+struct dma_buf;
+struct dma_buf *dc_nohw_make_dmabuf(unsigned int index);
+
 
 #ifndef UNREFERENCED_PARAMETER
 #define	UNREFERENCED_PARAMETER(param) (param) = (param)
