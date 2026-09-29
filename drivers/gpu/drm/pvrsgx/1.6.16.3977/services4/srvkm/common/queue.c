@@ -348,7 +348,22 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroyCommandQueueKM(PVRSRV_QUEUE_INFO *psQueue
 	if (bTimeout)
 	{
 		
-		PVR_DPF((PVR_DBG_ERROR,"PVRSRVDestroyCommandQueueKM : Failed to empty queue"));
+		PVRSRV_COMMAND *psCommand = (PVRSRV_COMMAND *)
+			((IMG_UINTPTR_T)psQueueInfo->pvLinQueueKM + psQueueInfo->ui32ReadOffset);
+		PVRSRV_KERNEL_SYNC_INFO *psSyncInfo = IMG_NULL;
+
+		if (psCommand->ui32SrcSyncCount != 0 && psCommand->psSrcSync != IMG_NULL)
+		{
+			psSyncInfo = psCommand->psSrcSync[0].psKernelSyncInfoKM;
+		}
+		printk(KERN_ERR "PVR_K: PVRSRVDestroyCommandQueueKM: queue 0x%x did not empty, RO=0x%x WO=0x%x cmd=0x%x srcs=%u src0_syncinfo=0x%x src0_syncdata=0x%x\n",
+			(IMG_UINTPTR_T)psQueueInfo,
+			psQueueInfo->ui32ReadOffset,
+			psQueueInfo->ui32WriteOffset,
+			(IMG_UINTPTR_T)psCommand,
+			psCommand->ui32SrcSyncCount,
+			(IMG_UINTPTR_T)psSyncInfo,
+			psSyncInfo ? (IMG_UINTPTR_T)psSyncInfo->psSyncData : 0);
 		eError = PVRSRV_ERROR_CANNOT_FLUSH_QUEUE;
 		goto ErrorExit;
 	}

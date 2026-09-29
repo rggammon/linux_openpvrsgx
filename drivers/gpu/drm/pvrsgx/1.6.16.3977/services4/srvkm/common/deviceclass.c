@@ -814,6 +814,29 @@ static PVRSRV_ERROR DestroyDCSwapChain(PVRSRV_DC_SWAPCHAIN *psSwapChain)
 
 
 	
+	eError = PVRSRVDestroyCommandQueueKM(psSwapChain->psQueue);
+	if (eError != PVRSRV_OK)
+	{
+		printk(KERN_ERR "PVR_K: DestroyDCSwapChain: preserving swapchain 0x%x after queue 0x%x destroy failed (%d), RO=0x%x WO=0x%x\n",
+			(IMG_UINTPTR_T)psSwapChain,
+			(IMG_UINTPTR_T)psSwapChain->psQueue,
+			eError,
+			psSwapChain->psQueue->ui32ReadOffset,
+			psSwapChain->psQueue->ui32WriteOffset);
+
+		for (i = 0; i < psSwapChain->ui32BufferCount; i++)
+		{
+			PVRSRV_KERNEL_SYNC_INFO *psSyncInfo =
+				psSwapChain->asBuffer[i].sDeviceClassBuffer.psKernelSyncInfo;
+
+			printk(KERN_ERR "PVR_K: DestroyDCSwapChain: buffer %u syncinfo=0x%x syncdata=0x%x refcount=%u\n",
+				i, (IMG_UINTPTR_T)psSyncInfo,
+				psSyncInfo ? (IMG_UINTPTR_T)psSyncInfo->psSyncData : 0,
+				psSyncInfo ? psSyncInfo->ui32RefCount : 0);
+		}
+		return eError;
+	}
+
 	if( psDCInfo->psDCSwapChainShared )
 	{
 		if( psDCInfo->psDCSwapChainShared == psSwapChain )
@@ -838,7 +861,6 @@ static PVRSRV_ERROR DestroyDCSwapChain(PVRSRV_DC_SWAPCHAIN *psSwapChain)
 	}
 
 	
-	PVRSRVDestroyCommandQueueKM(psSwapChain->psQueue);
 
 	
 	eError = psDCInfo->psFuncTable->pfnDestroyDCSwapChain(psDCInfo->hExtDevice,
