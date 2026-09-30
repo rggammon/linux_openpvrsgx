@@ -796,7 +796,18 @@ static PVRSRV_ERROR DestroyDCSwapChainCallBack(IMG_PVOID pvParam, IMG_UINT32 ui3
 	PVR_UNREFERENCED_PARAMETER(ui32Param);
 
 	
-	PVRSRVDestroyCommandQueueKM(psSwapChain->psQueue);
+	eError = PVRSRVDestroyCommandQueueKM(psSwapChain->psQueue);
+	if (eError != PVRSRV_OK)
+	{
+		/* Queue still holds an unretired display flip whose source sync the
+		 * asynchronous dc_nohw present worker will dereference. Fail closed: do
+		 * not release the buffer sync infos or free the swapchain (RESMAN has
+		 * already removed the swapchain item). The stranded chain is reclaimed
+		 * by the next CreateDCSwapChain. */
+		printk(KERN_ERR "PVR_K: DestroyDCSwapChainCallBack: preserving swapchain %p after queue %p destroy failed (%d)\n",
+			psSwapChain, psSwapChain->psQueue, eError);
+		return eError;
+	}
 
 	
 	eError = psDCInfo->psFuncTable->pfnDestroyDCSwapChain(psDCInfo->hExtDevice,
