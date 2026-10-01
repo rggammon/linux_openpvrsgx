@@ -1036,6 +1036,8 @@ IMG_VOID HWRecoveryResetSGX (PVRSRV_DEVICE_NODE *psDeviceNode,
 
 	
 	
+	PVRSRVReconcileStrandedSyncsKM(ui32CallerID);
+
 	PVRSRVProcessQueues(ui32CallerID, IMG_TRUE);
 }
 #endif 
