@@ -473,6 +473,26 @@ IMG_VOID SGXCleanupRequest(PVRSRV_DEVICE_NODE	*psDeviceNode,
 	else
 	{
 #if 1
+		IMG_UINT32 ui32Start = OSClockus();
+
+		/* A previous request that timed out may still be pending, or its late
+		 * COMPLETE may still be set; either would be credited to this request. */
+		if (psSGXHostCtl->ui32ResManFlags & ~PVRSRV_USSE_EDM_RESMAN_CLEANUP_COMPLETE)
+		{
+			printk(KERN_ERR "PVR_K: SGXCleanupRequest type=%u: waiting for stale request rmf=0x%x\n",
+				(unsigned)ui32CleanupType, (unsigned)psSGXHostCtl->ui32ResManFlags);
+			if (PollForValueSleepKM((volatile IMG_UINT32 *)(&psSGXHostCtl->ui32ResManFlags),
+						0,
+						~PVRSRV_USSE_EDM_RESMAN_CLEANUP_COMPLETE,
+						MAX_HW_TIME_US/WAIT_TRY_COUNT,
+						WAIT_TRY_COUNT) != PVRSRV_OK)
+			{
+				printk(KERN_ERR "PVR_K: SGXCleanupRequest type=%u: stale request never completed rmf=0x%x\n",
+					(unsigned)ui32CleanupType, (unsigned)psSGXHostCtl->ui32ResManFlags);
+			}
+		}
+		psSGXHostCtl->ui32ResManFlags &= ~(PVRSRV_USSE_EDM_RESMAN_CLEANUP_COMPLETE);
+
 		if (psSGXDevInfo->ui32CacheControl & SGX_BIF_INVALIDATE_PDCACHE)
 		{
 			psSGXHostCtl->ui32ResManFlags |= PVRSRV_USSE_EDM_RESMAN_CLEANUP_INVALPD;
@@ -501,15 +521,19 @@ IMG_VOID SGXCleanupRequest(PVRSRV_DEVICE_NODE	*psDeviceNode,
 
 		
 		#if !defined(NO_HARDWARE)
-		if(PollForValueKM ((volatile IMG_UINT32 *)(&psSGXHostCtl->ui32ResManFlags),
+		if(PollForValueSleepKM ((volatile IMG_UINT32 *)(&psSGXHostCtl->ui32ResManFlags),
 					PVRSRV_USSE_EDM_RESMAN_CLEANUP_COMPLETE,
 					PVRSRV_USSE_EDM_RESMAN_CLEANUP_COMPLETE,
 					MAX_HW_TIME_US/WAIT_TRY_COUNT,
 					WAIT_TRY_COUNT) != PVRSRV_OK)
 		{
-			PVR_DPF((PVR_DBG_ERROR,"SGXCleanupRequest: Wait for uKernel to clean up failed"));
+			printk(KERN_ERR "PVR_K: SGXCleanupRequest type=%u addr=0x%x: uKernel cleanup timed out rmf=0x%x\n",
+				(unsigned)ui32CleanupType, psHWDataDevVAddr ? (unsigned)psHWDataDevVAddr->uiAddr : 0,
+				(unsigned)psSGXHostCtl->ui32ResManFlags);
 			PVR_DBG_BREAK;
 		}
+		printk(KERN_DEBUG "PVR_K: SGXCleanupRequest type=%u took %uus\n",
+			(unsigned)ui32CleanupType, (unsigned)(OSClockus() - ui32Start));
 		#endif
 
 		psSGXHostCtl->ui32ResManFlags &= ~(PVRSRV_USSE_EDM_RESMAN_CLEANUP_COMPLETE);

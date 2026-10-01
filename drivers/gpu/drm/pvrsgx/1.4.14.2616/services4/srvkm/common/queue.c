@@ -375,7 +375,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroyCommandQueueKM(PVRSRV_QUEUE_INFO *psQueue
 			bTimeout = IMG_FALSE;
 			break;
 		}		
-		OSWaitus(MAX_HW_TIME_US/WAIT_TRY_COUNT);
+		OSSleepus(MAX_HW_TIME_US/WAIT_TRY_COUNT);
 	} END_LOOP_UNTIL_TIMEOUT();
 
 	if (bTimeout)

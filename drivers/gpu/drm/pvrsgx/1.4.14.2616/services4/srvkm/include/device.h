@@ -254,6 +254,13 @@ IMG_IMPORT PVRSRV_ERROR IMG_CALLCONV PollForValueKM(volatile IMG_UINT32* pui32Li
 												   IMG_UINT32 ui32Waitus,
 												   IMG_UINT32 ui32Tries);
 
+/* As PollForValueKM but sleeps between polls; process context only. */
+PVRSRV_ERROR IMG_CALLCONV PollForValueSleepKM(volatile IMG_UINT32* pui32LinMemAddr,
+										   IMG_UINT32 ui32Value,
+										   IMG_UINT32 ui32Mask,
+										   IMG_UINT32 ui32Waitus,
+										   IMG_UINT32 ui32Tries);
+
 #endif 
 
 
