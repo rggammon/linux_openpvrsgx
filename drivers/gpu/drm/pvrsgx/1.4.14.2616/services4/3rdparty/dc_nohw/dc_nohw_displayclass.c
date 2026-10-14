@@ -302,6 +302,15 @@ static PVRSRV_ERROR GetDCBufferAddr(IMG_HANDLE         hDevice,
 	return (PVRSRV_OK);
 }
 
+static PVRSRV_ERROR DestroyDCSwapChain(IMG_HANDLE hDevice, IMG_HANDLE hSwapChain);
+
+/* Pointer compared first: a stale handle is only dereferenced if its address is the live chain's. */
+static IMG_BOOL SwapChainHasChanged(DC_NOHW_DEVINFO *psDevInfo, DC_NOHW_SWAPCHAIN *psSwapChain)
+{
+	return psDevInfo->psSwapChain != psSwapChain ||
+	       psDevInfo->ulSwapChainID != psSwapChain->ulSwapChainID;
+}
+
 static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
                                       IMG_UINT32 ui32Flags,
                                       DISPLAY_SURF_ATTRIBUTES *psDstSurfAttrib,
@@ -416,10 +425,13 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	pr_debug("dcnohw: CreateDCSwapChain bufcount=%u warm=%u\n", ui32BufferCount, gWarmSwapchain);
 
 	
+	psSwapChain->ulSwapChainID = ++psDevInfo->ulSwapChainID;
 	psDevInfo->psSwapChain = psSwapChain;
 
 	
 	*phSwapChain = (IMG_HANDLE)psSwapChain;
+
+	DCNohwNotifySwapchain(1, (unsigned int)ui32BufferCount);
 
 	
 
@@ -443,12 +455,21 @@ static PVRSRV_ERROR DestroyDCSwapChain(IMG_HANDLE hDevice,
 	psDevInfo = (DC_NOHW_DEVINFO*)hDevice;
 	psSwapChain = (DC_NOHW_SWAPCHAIN*)hSwapChain;
 
+	if(SwapChainHasChanged(psDevInfo, psSwapChain))
+	{
+		printk(KERN_WARNING "dcnohw: DestroyDCSwapChain: ignoring stale swapchain %p\n", hSwapChain);
+		return (PVRSRV_ERROR_INVALID_PARAMS);
+	}
+
 	
 	FreeKernelMem(psSwapChain->psBuffer);
 	FreeKernelMem(psSwapChain);
 
 	
 	psDevInfo->psSwapChain = 0;
+
+	DCNohwPresentFlush();
+	DCNohwNotifySwapchain(0, 0);
 
 	
 
@@ -523,6 +544,11 @@ static PVRSRV_ERROR GetDCBuffers(IMG_HANDLE hDevice,
 
 	psSwapChain = (DC_NOHW_SWAPCHAIN*)hSwapChain;
 
+	if(SwapChainHasChanged((DC_NOHW_DEVINFO*)hDevice, psSwapChain))
+	{
+		return (PVRSRV_ERROR_INVALID_PARAMS);
+	}
+
 	
 	*pui32BufferCount = (IMG_UINT32)psSwapChain->ulBufferCount;
 
@@ -587,6 +613,26 @@ static DC_ERROR Flip(DC_NOHW_DEVINFO	*psDevInfo,
 }
 
 
+static int DCNohwBufferIndex(DC_NOHW_DEVINFO *psDevInfo, DC_NOHW_BUFFER *psBuffer)
+{
+	unsigned int i;
+
+	for (i = 0; i < DC_NOHW_MAX_BACKBUFFERS; i++)
+		if (psDevInfo->asBackBuffers[i].sCPUVAddr == psBuffer->sCPUVAddr)
+			return (int)i;
+	return -1;
+}
+
+
+void DCNohwCompleteFlip(void *hCmdCookie)
+{
+	DC_NOHW_DEVINFO *psDevInfo = GetAnchorPtr();
+
+	if (psDevInfo && hCmdCookie)
+		psDevInfo->sPVRJTable.pfnPVRSRVCmdComplete((IMG_HANDLE)hCmdCookie, IMG_TRUE);
+}
+
+
 static IMG_BOOL ProcessFlip(IMG_HANDLE	hCmdCookie,
                             IMG_UINT32	ui32DataSize,
                             IMG_VOID	*pvData)
@@ -612,6 +658,13 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE	hCmdCookie,
 	
 	psDevInfo = (DC_NOHW_DEVINFO*)psFlipCmd->hExtDevice;
 
+	/* flip for a destroyed chain: retire it without presenting */
+	if(SwapChainHasChanged(psDevInfo, (DC_NOHW_SWAPCHAIN*)psFlipCmd->hExtSwapChain))
+	{
+		psDevInfo->sPVRJTable.pfnPVRSRVCmdComplete(hCmdCookie, IMG_FALSE);
+		return (IMG_TRUE);
+	}
+
 	psBuffer = (DC_NOHW_BUFFER*)psFlipCmd->hExtBuffer;
 
 
@@ -622,6 +675,15 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE	hCmdCookie,
 	}
 
 	
+	{
+		int iIndex = DCNohwBufferIndex(psDevInfo, psBuffer);
+		if (iIndex >= 0) {
+			DCNohwNotifySwap((unsigned int)iIndex);
+			if (DCNohwPresentFlip((unsigned int)iIndex, (void *)hCmdCookie))
+				return (IMG_TRUE);
+		}
+	}
+
 	psDevInfo->sPVRJTable.pfnPVRSRVCmdComplete(hCmdCookie, IMG_FALSE);
 
 	return (IMG_TRUE);
@@ -690,6 +752,7 @@ DC_ERROR Init(void)
 		
 
 		psDevInfo->psSwapChain = 0;
+		psDevInfo->ulSwapChainID = 0;
 		psDevInfo->sDisplayInfo.ui32MinSwapInterval = 0UL;
 		psDevInfo->sDisplayInfo.ui32MaxSwapInterval = 1UL;
 		psDevInfo->sDisplayInfo.ui32MaxSwapChains = 1UL;

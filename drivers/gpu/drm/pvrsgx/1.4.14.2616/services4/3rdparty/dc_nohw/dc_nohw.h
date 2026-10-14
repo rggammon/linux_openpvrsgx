@@ -93,6 +93,7 @@ typedef struct DC_NOHW_SWAPCHAIN_TAG
 {
 	unsigned long ulBufferCount;
 	DC_NOHW_BUFFER *psBuffer;
+	unsigned long ulSwapChainID;
 } DC_NOHW_SWAPCHAIN;
 
 
@@ -127,6 +128,7 @@ typedef struct DC_NOHW_DEVINFO_TAG
 	unsigned long            ulRefCount;
 
 	DC_NOHW_SWAPCHAIN       *psSwapChain;
+	unsigned long		 ulSwapChainID;
 
 	
 	
@@ -178,6 +180,11 @@ void DCNohwNotifySwapchain(int create, unsigned int buffer_count);
 void DCNohwNotifySwap(unsigned int index);
 struct dma_buf;
 struct dma_buf *dc_nohw_make_dmabuf(unsigned int index);
+void DCNohwCompleteFlip(void *cookie);
+void DCNohwPresentInit(void);
+int DCNohwPresentFlip(unsigned int index, void *cookie);
+void DCNohwPresentFlush(void);
+void DCNohwPresentTeardown(void);
 
 
 #ifndef UNREFERENCED_PARAMETER

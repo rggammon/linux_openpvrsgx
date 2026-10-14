@@ -640,6 +640,30 @@ PVRSRV_ERROR IMG_CALLCONV PollForValueKM (volatile IMG_UINT32* pui32LinMemAddr,
 }
 
 
+PVRSRV_ERROR IMG_CALLCONV PollForValueSleepKM (volatile IMG_UINT32* pui32LinMemAddr,
+										  IMG_UINT32 ui32Value,
+										  IMG_UINT32 ui32Mask,
+										  IMG_UINT32 ui32Waitus,
+										  IMG_UINT32 ui32Tries)
+{
+	{
+		IMG_UINT32	uiMaxTime = ui32Tries * ui32Waitus;
+
+		LOOP_UNTIL_TIMEOUT(uiMaxTime)
+		{
+			if((*pui32LinMemAddr & ui32Mask) == ui32Value)
+			{
+				return PVRSRV_OK;
+			}
+			OSSleepus(ui32Waitus);
+		} END_LOOP_UNTIL_TIMEOUT();
+	}
+
+
+	return PVRSRV_ERROR_GENERIC;
+}
+
+
 #if defined (USING_ISR_INTERRUPTS)
 
 extern IMG_UINT32 gui32EventStatusServicesByISR;

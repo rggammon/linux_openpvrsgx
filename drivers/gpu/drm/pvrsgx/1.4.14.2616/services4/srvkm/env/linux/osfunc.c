@@ -508,6 +508,11 @@ IMG_VOID OSWaitus(IMG_UINT32 ui32Timeus)
     udelay(ui32Timeus);
 }
 
+IMG_VOID OSSleepus(IMG_UINT32 ui32Timeus)
+{
+    usleep_range(ui32Timeus, 2 * ui32Timeus);
+}
+
 
 IMG_VOID OSGetCurrentProcessNameKM(IMG_CHAR *pszName, IMG_UINT32 ui32Size)
 {
