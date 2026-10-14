@@ -93,6 +93,7 @@ typedef struct DC_NOHW_SWAPCHAIN_TAG
 {
 	unsigned long ulBufferCount;
 	DC_NOHW_BUFFER *psBuffer;
+	unsigned long ulSwapChainID;
 } DC_NOHW_SWAPCHAIN;
 
 
@@ -127,6 +128,7 @@ typedef struct DC_NOHW_DEVINFO_TAG
 	unsigned long            ulRefCount;
 
 	DC_NOHW_SWAPCHAIN       *psSwapChain;
+	unsigned long		 ulSwapChainID;
 
 	
 	
